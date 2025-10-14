@@ -32,6 +32,10 @@ blueprints.
 - Optional dependency `python-dotenv` auto-loads `.env` when present.
 - Database migrations are managed with Alembic. Ensure Alembic is installed and
   run `alembic upgrade head` to apply the latest schema.
+- `FX_RATE_PROVIDER` switches between data sources (`mock` or
+  `exchangerate_host`). ExchangeRate.host requires no API key; tune HTTP settings
+  via `RATES_API_BASE_URL`, `RATES_API_MAX_RETRIES`, and
+  `RATES_API_BACKOFF_SECONDS`.
 
 ## Endpoints
 - `GET /health` returns general service health information.
@@ -42,6 +46,11 @@ blueprints.
 Run the smoke test suite with:
 ```bash
 pytest
+```
+
+Contract tests for the ExchangeRate.host provider rely on mocked HTTP responses:
+```bash
+pytest tests/test_exchangerate_provider.py
 ```
 
 To validate migrations locally:

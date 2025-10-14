@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import os
-from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-from app.providers import BaseRateProvider, ProviderError, RateHistorySeries, RateSnapshot
+from app.providers import (
+    BaseRateProvider,
+    ExchangeRateHostProvider,
+    ProviderError,
+    RateHistorySeries,
+    RateSnapshot,
+)
 from app.providers.mock import MockRateProvider
 from app.providers.registry import (
     get_provider,
@@ -18,7 +22,7 @@ from app.providers.registry import (
 
 
 @pytest.fixture(autouse=True)
-def reset_providers():
+def _reset_providers():
     reset_registry()
     yield
     reset_registry()
@@ -63,7 +67,7 @@ def test_history_contract_returns_series():
 
 
 def test_init_provider_attaches_to_app(app):
-    # The fixture already initializes providers, so re-run to make the behaviour explicit.
     provider = init_provider(app)
     assert isinstance(provider, BaseRateProvider)
     assert app.extensions["rate_provider"] is provider
+    assert ExchangeRateHostProvider.name in list_providers()

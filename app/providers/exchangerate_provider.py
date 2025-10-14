@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Iterable, Mapping
 
 from app.providers.base import BaseRateProvider, ProviderError
 from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
 
 from ..services.currency_registry import registry
-from .exchangerate_client import ExchangeRateHostClient, ExchangeRateHostClientConfig
+from .exchangerate_client import (
+    ExchangeRateHostClient,
+    ExchangeRateHostClientConfig,
+    ExchangeRateHostError,
+)
 
 
 class ExchangeRateHostProvider(BaseRateProvider):
@@ -32,7 +36,10 @@ class ExchangeRateHostProvider(BaseRateProvider):
             "base": base_currency,
             "symbols": self._allowed_symbols(exclude=base_currency),
         }
-        payload = self._client.get("/latest", params=params)
+        try:
+            payload = self._client.get("/latest", params=params)
+        except ExchangeRateHostError as exc:
+            raise ProviderError(str(exc)) from exc
         try:
             rates = payload["rates"]
             timestamp = self._parse_date(payload["date"])
@@ -53,7 +60,7 @@ class ExchangeRateHostProvider(BaseRateProvider):
         base_currency = self._normalize_base(base)
         quote_currency = self._normalize_symbol(symbol)
 
-        end_date = datetime.now(UTC).date()
+        end_date = self._current_date()
         start_date = end_date - timedelta(days=days - 1)
 
         params = {
@@ -62,7 +69,10 @@ class ExchangeRateHostProvider(BaseRateProvider):
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
         }
-        payload = self._client.get("/timeseries", params=params)
+        try:
+            payload = self._client.get("/timeseries", params=params)
+        except ExchangeRateHostError as exc:
+            raise ProviderError(str(exc)) from exc
         rates_by_date = payload.get("rates") or {}
 
         points: list[RatePoint] = []
@@ -84,7 +94,10 @@ class ExchangeRateHostProvider(BaseRateProvider):
 
     @staticmethod
     def _parse_date(value: str) -> datetime:
-        return datetime.fromisoformat(value).replace(tzinfo=UTC)
+        dt = datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
 
     def _allowed_symbols(self, exclude: str | None = None) -> str:
         codes: Iterable[str] = registry.codes
@@ -115,4 +128,8 @@ class ExchangeRateHostProvider(BaseRateProvider):
             max_retries=max_retries,
             backoff_seconds=backoff,
         )
+
+    @staticmethod
+    def _current_date() -> date:
+        return datetime.now(UTC).date()
 
