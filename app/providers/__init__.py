@@ -1,12 +1,13 @@
 """Provider interfaces and data structures for FX rate sources."""
 
 from .base import BaseRateProvider, ProviderError
-from .schemas import RateHistorySeries, RatePoint, RateSnapshot
 from .exchangerate_client import (
     ExchangeRateHostClient,
     ExchangeRateHostClientConfig,
     ExchangeRateHostError,
 )
+from .exchangerate_provider import ExchangeRateHostProvider
+from .schemas import RateHistorySeries, RatePoint, RateSnapshot
 
 __all__ = [
     "BaseRateProvider",
@@ -17,4 +18,5 @@ __all__ = [
     "ExchangeRateHostClient",
     "ExchangeRateHostClientConfig",
     "ExchangeRateHostError",
+    "ExchangeRateHostProvider",
 ]
