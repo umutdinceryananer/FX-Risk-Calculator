@@ -15,6 +15,7 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SCHEDULER_TIMEZONE = os.getenv("SCHEDULER_TIMEZONE", "UTC")
     REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "5"))
+    FX_RATE_PROVIDER = os.getenv("FX_RATE_PROVIDER", "mock")
 
 
 class DevelopmentConfig(BaseConfig):
