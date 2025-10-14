@@ -5,6 +5,7 @@ from __future__ import annotations
 from flask import Flask
 
 from config import get_config
+from .database import init_app as init_db
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -23,8 +24,8 @@ def create_app(config_name: str | None = None) -> Flask:
 def _register_extensions(app: Flask) -> None:
     """Placeholder for initializing extensions (SQLAlchemy, APScheduler, etc.)."""
 
-    # Extensions will be initialized in future commits.
-    return None
+    init_db(app)
+    from . import models  # noqa: F401  # Ensure models are imported for metadata
 
 
 def _register_blueprints(app: Flask) -> None:
