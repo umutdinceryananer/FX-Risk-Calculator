@@ -17,6 +17,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     _register_extensions(app)
     _register_blueprints(app)
+    _register_error_handlers(app)
 
     return app
 
@@ -35,5 +36,15 @@ def _register_blueprints(app: Flask) -> None:
     """Register Flask blueprints."""
 
     from .health import bp as health_bp
+    from .currencies import bp as currencies_bp
 
     app.register_blueprint(health_bp, url_prefix="/health")
+    app.register_blueprint(currencies_bp, url_prefix="/currencies")
+
+
+def _register_error_handlers(app: Flask) -> None:
+    """Register global error handlers."""
+
+    from .errors import register_error_handlers
+
+    register_error_handlers(app)
