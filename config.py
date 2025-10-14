@@ -16,6 +16,9 @@ class BaseConfig:
     SCHEDULER_TIMEZONE = os.getenv("SCHEDULER_TIMEZONE", "UTC")
     REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "5"))
     FX_RATE_PROVIDER = os.getenv("FX_RATE_PROVIDER", "mock")
+    RATES_API_BASE_URL = os.getenv("RATES_API_BASE_URL", "https://api.exchangerate.host")
+    RATES_API_MAX_RETRIES = int(os.getenv("RATES_API_MAX_RETRIES", "3"))
+    RATES_API_BACKOFF_SECONDS = float(os.getenv("RATES_API_BACKOFF_SECONDS", "0.5"))
 
 
 class DevelopmentConfig(BaseConfig):

@@ -2,6 +2,11 @@
 
 from .base import BaseRateProvider, ProviderError
 from .schemas import RateHistorySeries, RatePoint, RateSnapshot
+from .exchangerate_client import (
+    ExchangeRateHostClient,
+    ExchangeRateHostClientConfig,
+    ExchangeRateHostError,
+)
 
 __all__ = [
     "BaseRateProvider",
@@ -9,4 +14,7 @@ __all__ = [
     "RateHistorySeries",
     "RatePoint",
     "RateSnapshot",
+    "ExchangeRateHostClient",
+    "ExchangeRateHostClientConfig",
+    "ExchangeRateHostError",
 ]
