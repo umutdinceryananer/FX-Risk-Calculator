@@ -30,6 +30,8 @@ blueprints.
 - `DATABASE_URL`, `SECRET_KEY`, `SCHEDULER_TIMEZONE`, and other variables are
   documented in `.env.example`.
 - Optional dependency `python-dotenv` auto-loads `.env` when present.
+- Database migrations are managed with Alembic. Ensure Alembic is installed and
+  run `alembic upgrade head` to apply the latest schema.
 
 ## Endpoints
 - `GET /health` returns general service health information.
@@ -40,4 +42,9 @@ blueprints.
 Run the smoke test suite with:
 ```bash
 pytest
+```
+
+To validate migrations locally:
+```bash
+pytest tests/migrations
 ```
