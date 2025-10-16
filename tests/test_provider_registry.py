@@ -11,6 +11,7 @@ from app.providers import (
     RateHistorySeries,
     RateSnapshot,
 )
+from app.providers.frankfurter_provider import FrankfurterProvider
 from app.providers.mock import MockRateProvider
 from app.providers.registry import (
     get_provider,
@@ -71,3 +72,4 @@ def test_init_provider_attaches_to_app(app):
     assert isinstance(provider, BaseRateProvider)
     assert app.extensions["rate_provider"] is provider
     assert ExchangeRateHostProvider.name in list_providers()
+    assert FrankfurterProvider.name in list_providers()
