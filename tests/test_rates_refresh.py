@@ -32,7 +32,10 @@ def snapshot():
     )
 
 
-def test_manual_refresh_returns_accepted(client, snapshot):
+def test_manual_refresh_returns_accepted(client, snapshot, monkeypatch):
+    calls = {"persist": 0}
+    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1))
+
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(snapshot=snapshot)
     app.extensions["fx_refresh_state"] = {}
@@ -44,13 +47,16 @@ def test_manual_refresh_returns_accepted(client, snapshot):
     assert payload["source"] == "mock"
     assert payload["base_currency"] == "USD"
     assert payload["as_of"] == snapshot.timestamp.isoformat()
+    assert calls["persist"] == 1
 
     state = app.extensions["fx_refresh_state"]
     assert state["last_success"] is not None
     assert state["last_failure"] is None
 
 
-def test_manual_refresh_throttles_requests(client, snapshot):
+def test_manual_refresh_throttles_requests(client, snapshot, monkeypatch):
+    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: (_ for _ in ()).throw(RuntimeError("should not persist")))
+
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(snapshot=snapshot)
     app.extensions["fx_refresh_state"] = {"last_success": datetime.now(UTC)}
@@ -62,7 +68,9 @@ def test_manual_refresh_throttles_requests(client, snapshot):
     assert "retry_after" in payload
 
 
-def test_manual_refresh_reports_provider_error(client):
+def test_manual_refresh_reports_provider_error(client, monkeypatch):
+    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: None)
+
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(error=ProviderError("primary down"))
     app.extensions["fx_refresh_state"] = {}

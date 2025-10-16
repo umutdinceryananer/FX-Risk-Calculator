@@ -10,6 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.providers import ProviderError
+from app.services.rate_store import persist_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ def _run_refresh(app) -> None:
         try:
             snapshot = orchestrator.refresh_latest(base)
             state = ensure_refresh_state(app)
+            persist_snapshot(snapshot)
             state["last_success"] = datetime.now(UTC)
             state["last_failure"] = None
             state["last_snapshot"] = {
@@ -46,6 +48,7 @@ def _run_refresh(app) -> None:
             logger.info("Scheduled refresh completed using %s", snapshot.source)
         except ProviderError as exc:
             state = ensure_refresh_state(app)
+            persist_snapshot(snapshot)
             state["last_failure"] = datetime.now(UTC)
             logger.error("Scheduled refresh failed: %s", exc)
 
@@ -78,3 +81,4 @@ def init_scheduler(app) -> Optional[BackgroundScheduler]:
 
     logger.info("APScheduler started with cron '%s'", cron_expr)
     return scheduler
+

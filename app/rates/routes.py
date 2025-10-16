@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from flask import Response, current_app, jsonify
 
 from app.providers.base import ProviderError
+from app.services.rate_store import persist_snapshot
 from app.services.orchestrator import Orchestrator
 from app.services.scheduler import ensure_refresh_state
 
@@ -45,6 +46,7 @@ def refresh_rates() -> Response:
 
     state["last_success"] = now
     state["last_failure"] = None
+    persist_snapshot(snapshot)
     state["last_snapshot"] = {
         "source": snapshot.source,
         "base_currency": snapshot.base_currency,
@@ -58,3 +60,6 @@ def refresh_rates() -> Response:
         "as_of": snapshot.timestamp.isoformat(),
     }
     return jsonify(payload), 202
+
+
+
