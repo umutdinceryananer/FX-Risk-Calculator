@@ -39,6 +39,8 @@ blueprints.
   (retries with exponential backoff plus jitter).
 - `FX_CANONICAL_BASE` defines the stored canonical base (default `USD`); other view bases are computed on demand via rebasing helpers.
 
+- `SCHEDULER_ENABLED` toggles APScheduler integration. `RATES_REFRESH_CRON` sets the cron expression.
+- CLI backfill: `flask --app app.cli.backfill backfill-rates --days 30 --base USD`
 ## Endpoints
 - `GET /health` returns general service health information.
 - `GET /health/rates` reports the FX rates pipeline status (stubbed as
@@ -66,3 +68,4 @@ Manual refresh:
 curl -X POST http://127.0.0.1:5000/rates/refresh
 `
 Scheduler uses APScheduler; disable it via SCHEDULER_ENABLED=false or adjust cron with RATES_REFRESH_CRON.
+
