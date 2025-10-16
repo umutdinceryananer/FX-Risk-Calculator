@@ -27,11 +27,12 @@ def _register_extensions(app: Flask) -> None:
 
     init_db(app)
     from . import models  # noqa: F401  # Ensure models are imported for metadata
-    from .services.currency_registry import init_registry
+    from .services import init_registry, init_orchestrator
     from .providers.registry import init_provider
 
     init_registry(app)
     init_provider(app)
+    init_orchestrator(app)
 
 
 def _register_blueprints(app: Flask) -> None:

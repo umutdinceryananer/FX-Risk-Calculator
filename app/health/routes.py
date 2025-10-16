@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from flask import Response, current_app, jsonify
 
+from app.services.orchestrator import Orchestrator, SnapshotRecord
+
 from . import bp
 
 
@@ -21,10 +23,26 @@ def health() -> Response:
 
 @bp.get("/rates")
 def health_rates() -> Response:
-    """Return the status of FX rates fetching components (stub)."""
+    """Return the status of FX rates fetching components."""
 
-    payload = {
-        "status": "ok",
-        "rates_status": "uninitialized",
-    }
+    orchestrator: Orchestrator | None = current_app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+    record: SnapshotRecord | None = orchestrator.get_snapshot_info() if orchestrator else None
+
+    if record is None:
+        payload = {
+            "status": "uninitialized",
+            "source": None,
+            "base_currency": None,
+            "last_updated": None,
+            "stale": None,
+        }
+    else:
+        snapshot = record.snapshot
+        payload = {
+            "status": "ok",
+            "source": snapshot.source,
+            "base_currency": snapshot.base_currency,
+            "last_updated": snapshot.timestamp.isoformat(),
+            "stale": record.stale,
+        }
     return jsonify(payload)

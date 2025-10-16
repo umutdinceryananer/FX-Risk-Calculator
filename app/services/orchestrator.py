@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Optional
 
 from app.providers import BaseRateProvider, ProviderError, RateSnapshot
+from app.providers.registry import get_provider
 
 logger = logging.getLogger(__name__)
 
@@ -66,3 +67,24 @@ class Orchestrator:
 
 def create_orchestrator(primary: BaseRateProvider, fallback: Optional[BaseRateProvider] = None) -> Orchestrator:
     return Orchestrator(primary=primary, fallback=fallback)
+
+
+def init_orchestrator(app) -> Orchestrator:
+    """Create and store an orchestrator on the Flask app context."""
+
+    primary = app.extensions.get("rate_provider")
+    if primary is None:
+        primary = get_provider(app.config.get("FX_RATE_PROVIDER"))
+
+    fallback_provider = None
+    fallback_name = app.config.get("FX_FALLBACK_PROVIDER")
+    if fallback_name:
+        try:
+            with app.app_context():
+                fallback_provider = get_provider(fallback_name)
+        except ProviderError as exc:
+            logger.warning("Configured fallback provider '%s' unavailable: %s", fallback_name, exc)
+
+    orchestrator = Orchestrator(primary=primary, fallback=fallback_provider)
+    app.extensions["fx_orchestrator"] = orchestrator
+    return orchestrator
