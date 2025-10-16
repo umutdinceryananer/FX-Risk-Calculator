@@ -13,20 +13,26 @@ _PROVIDER_FACTORIES: Dict[str, ProviderFactory] = {}
 
 
 def _default_factories() -> Iterable[tuple[str, ProviderFactory]]:
-    from .mock import MockRateProvider
-    from .exchangerate_provider import ExchangeRateHostProvider
     from flask import current_app
+
+    from .exchangerate_provider import ExchangeRateHostProvider
+    from .frankfurter_provider import FrankfurterProvider
+    from .mock import MockRateProvider
 
     factories: list[tuple[str, ProviderFactory]] = [
         (MockRateProvider.name, MockRateProvider),
     ]
 
     def exchangerate_factory() -> ExchangeRateHostProvider:
-        # Access Flask config lazily to avoid circular imports during registry init.
         config = current_app.config
         return ExchangeRateHostProvider.from_config(config)
 
+    def frankfurter_factory() -> FrankfurterProvider:
+        config = current_app.config
+        return FrankfurterProvider.from_config(config)
+
     factories.append((ExchangeRateHostProvider.name, exchangerate_factory))
+    factories.append((FrankfurterProvider.name, frankfurter_factory))
     return factories
 
 
