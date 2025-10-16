@@ -69,3 +69,4 @@ curl -X POST http://127.0.0.1:5000/rates/refresh
 `
 Scheduler uses APScheduler; disable it via SCHEDULER_ENABLED=false or adjust cron with RATES_REFRESH_CRON.
 
+\n## API Documentation\n- Swagger UI: http://127.0.0.1:5000/docs/\n- OpenAPI spec: http://127.0.0.1:5000/docs/openapi.json\n
