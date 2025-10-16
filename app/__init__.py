@@ -18,8 +18,8 @@ def create_app(config_name: str | None = None) -> Flask:
     app.config.from_object(config_class)
 
     _configure_api(app)
-    _register_extensions(app)
-    _register_blueprints(app)
+    api = _register_extensions(app)
+    _register_blueprints(app, api)
     _register_error_handlers(app)
 
     register_cli(app)
@@ -38,7 +38,7 @@ def _configure_api(app: Flask) -> None:
     )
 
 
-def _register_extensions(app: Flask) -> None:
+def _register_extensions(app: Flask) -> Api:
     """Placeholder for initializing extensions (SQLAlchemy, APScheduler, etc.)."""
 
     init_db(app)
@@ -54,17 +54,18 @@ def _register_extensions(app: Flask) -> None:
 
     api = Api(app)
     app.extensions["smorest_api"] = api
+    return api
 
 
-def _register_blueprints(app: Flask) -> None:
+def _register_blueprints(app: Flask, api: Api) -> None:
     """Register Flask blueprints."""
 
-    from .health import bp as health_bp
-    from .currencies import bp as currencies_bp
+    from .health import blp as health_blp
+    from .currencies import blp as currencies_blp
     from .rates import bp as rates_bp
 
-    app.register_blueprint(health_bp, url_prefix="/health")
-    app.register_blueprint(currencies_bp, url_prefix="/currencies")
+    api.register_blueprint(health_blp, url_prefix="/health")
+    api.register_blueprint(currencies_blp, url_prefix="/currencies")
     app.register_blueprint(rates_bp, url_prefix="/rates")
 
 
@@ -74,3 +75,6 @@ def _register_error_handlers(app: Flask) -> None:
     from .errors import register_error_handlers
 
     register_error_handlers(app)
+
+
+

@@ -80,3 +80,4 @@ def test_manual_refresh_reports_provider_error(client, monkeypatch):
     assert response.status_code == 503
     payload = response.get_json()
     assert "primary down" in payload["message"]
+

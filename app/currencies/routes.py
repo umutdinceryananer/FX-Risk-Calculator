@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from flask import jsonify, request
+from flask.views import MethodView
 
+from app.schemas import (
+    CurrencyValidationRequestSchema,
+    CurrencyValidationResponseSchema,
+)
 from app.validation import validate_currency_code
 
-from . import bp
+from . import blp
 
 
-@bp.post("/validate")
-def validate_currency():
-    """Validate a currency code against the configured allowlist."""
-
-    payload = request.get_json(silent=True) or {}
-    code = payload.get("code")
-    validated = validate_currency_code(code, field="code")
-
-    return jsonify(
-        {
+@blp.route("/validate")
+class CurrencyValidation(MethodView):
+    @blp.arguments(CurrencyValidationRequestSchema)
+    @blp.response(200, CurrencyValidationResponseSchema())
+    def post(self, data):
+        validated = validate_currency_code(data.get("code"), field="code")
+        return {
             "code": validated,
             "message": "Currency code is valid.",
         }
-    )

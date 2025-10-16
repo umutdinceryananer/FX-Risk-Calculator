@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from flask import Blueprint
+from flask_smorest import Blueprint
 
-bp = Blueprint("currencies", __name__)
+blp = Blueprint("Currencies", __name__, description="Currency validation endpoints")
 
 from . import routes  # noqa: E402,F401

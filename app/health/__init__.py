@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from flask import Blueprint
+from flask_smorest import Blueprint
 
-bp = Blueprint("health", __name__)
+blp = Blueprint("Health", __name__, description="Service health endpoints")
 
-# Import routes to ensure they are registered with the blueprint.
 from . import routes  # noqa: E402,F401

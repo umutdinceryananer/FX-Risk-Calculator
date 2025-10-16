@@ -60,6 +60,3 @@ def refresh_rates() -> Response:
         "as_of": snapshot.timestamp.isoformat(),
     }
     return jsonify(payload), 202
-
-
-
