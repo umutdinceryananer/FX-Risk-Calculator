@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Flask
+from flask_smorest import Api
 
 from config import get_config
 from .database import init_app as init_db
@@ -16,12 +17,25 @@ def create_app(config_name: str | None = None) -> Flask:
     config_class = get_config(config_name)
     app.config.from_object(config_class)
 
+    _configure_api(app)
     _register_extensions(app)
     _register_blueprints(app)
     _register_error_handlers(app)
 
     register_cli(app)
     return app
+
+
+def _configure_api(app: Flask) -> None:
+    app.config.setdefault("API_TITLE", "FX Risk Calculator API")
+    app.config.setdefault("API_VERSION", "v1")
+    app.config.setdefault("OPENAPI_VERSION", "3.0.3")
+    app.config.setdefault("OPENAPI_URL_PREFIX", "/docs")
+    app.config.setdefault("OPENAPI_SWAGGER_UI_PATH", "/")
+    app.config.setdefault(
+        "OPENAPI_SWAGGER_UI_URL",
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+    )
 
 
 def _register_extensions(app: Flask) -> None:
@@ -37,6 +51,9 @@ def _register_extensions(app: Flask) -> None:
     init_orchestrator(app)
     ensure_refresh_state(app)
     init_scheduler(app)
+
+    api = Api(app)
+    app.extensions["smorest_api"] = api
 
 
 def _register_blueprints(app: Flask) -> None:
@@ -57,5 +74,3 @@ def _register_error_handlers(app: Flask) -> None:
     from .errors import register_error_handlers
 
     register_error_handlers(app)
-
-

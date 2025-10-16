@@ -1330,7 +1330,7 @@ Generate and serve `/openapi.json` + `/docs` (Swagger UI).
 
 # Issue 14: Rates backfill (30-day history)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1372,7 +1372,7 @@ Backfill last 30 days for allowed currency set; idempotent inserts.
 
 # Issue 13: Scheduler & manual refresh endpoint
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1420,7 +1420,7 @@ Run APScheduler hourly; provide manual refresh `POST /api/v1/rates/refresh` with
 
 # Issue 12: HTTP client wrapper (timeouts/retries/backoff/jitter)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1464,7 +1464,7 @@ Centralize HTTP behaviors for providers.
 
 # Issue 11: Provider orchestration & stale cache
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1512,7 +1512,7 @@ Try Exchange ΓåÆ ECB; if both fail, return last known snapshot with `stale=tr
 
 # Issue 10: Fallback provider: ECB/Frankfurter (+ cross-rate)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
