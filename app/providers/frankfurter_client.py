@@ -1,15 +1,9 @@
-"""HTTP client for the ECB Frankfurter API."""
-
 from __future__ import annotations
 
 import logging
-import time
-from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional
 
-import requests
-from requests import Response, Session
-from requests.exceptions import JSONDecodeError, RequestException
+from app.providers.http_client import HTTPClient, HTTPClientConfig, HTTPClientError
 
 logger = logging.getLogger(__name__)
 
@@ -18,79 +12,40 @@ class FrankfurterAPIError(RuntimeError):
     """Raised when the Frankfurter API returns an error response."""
 
 
-@dataclass(frozen=True)
 class FrankfurterClientConfig:
     """Configuration parameters for the Frankfurter client."""
 
-    base_url: str
-    timeout: float
-    max_retries: int = 3
-    backoff_seconds: float = 0.5
+    def __init__(self, base_url: str, timeout: float, max_retries: int = 3, backoff_seconds: float = 0.5) -> None:
+        self.base_url = base_url
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.backoff_seconds = backoff_seconds
 
 
 class FrankfurterClient:
-    """Minimal HTTP client with retry/backoff semantics for the Frankfurter API."""
+    """HTTP client for Frankfurter built on the shared wrapper."""
 
-    def __init__(self, config: FrankfurterClientConfig, session: Optional[Session] = None) -> None:
+    def __init__(self, config: FrankfurterClientConfig, client: Optional[HTTPClient] = None) -> None:
         self._config = config
-        self._session = session or requests.Session()
+        self._client = client or HTTPClient(
+            HTTPClientConfig(
+                base_url=config.base_url,
+                timeout=config.timeout,
+                max_retries=config.max_retries,
+                backoff_seconds=config.backoff_seconds,
+            )
+        )
 
     def get(self, path: str, params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
-        """Perform a GET request with retry/backoff semantics."""
-
-        url = self._build_url(path)
-        attempt = 0
-        last_error: Optional[Exception] = None
-
-        while attempt < self._config.max_retries:
-            attempt += 1
-            try:
-                response = self._session.get(
-                    url,
-                    params=params,
-                    timeout=self._config.timeout,
-                )
-                return self._handle_response(response)
-            except (RequestException, FrankfurterAPIError) as exc:
-                last_error = exc
-                if attempt >= self._config.max_retries:
-                    break
-                sleep_for = self._config.backoff_seconds * (2 ** (attempt - 1))
-                logger.warning(
-                    "Frankfurter request failed (attempt %s/%s): %s. Retrying in %.2fs.",
-                    attempt,
-                    self._config.max_retries,
-                    exc,
-                    sleep_for,
-                )
-                time.sleep(sleep_for)
-
-        raise FrankfurterAPIError(f"Failed to fetch data from Frankfurter API: {last_error}") from last_error
-
-    def _build_url(self, path: str) -> str:
-        base = self._config.base_url.rstrip("/")
-        suffix = path.lstrip("/")
-        return f"{base}/{suffix}"
-
-    @staticmethod
-    def _handle_response(response: Response) -> Dict[str, Any]:
-        status = response.status_code
-        if status >= 500:
-            raise FrankfurterAPIError(f"Frankfurter API returned {status}")
-        if status >= 400:
-            raise FrankfurterAPIError(
-                f"Frankfurter API client error {status}: {response.text}"
-            )
-
         try:
-            payload: Dict[str, Any] = response.json()
-        except JSONDecodeError as exc:  # pragma: no cover - defensive
-            raise FrankfurterAPIError("Invalid JSON response from Frankfurter API") from exc
-
-        if "error" in payload:
-            raise FrankfurterAPIError(f"Frankfurter API error payload: {payload['error']}")
+            payload = self._client.get(path, params=params)
+        except HTTPClientError as exc:
+            raise FrankfurterAPIError(str(exc)) from exc
 
         if "rates" not in payload:
             raise FrankfurterAPIError("Frankfurter API response missing 'rates' field")
+
+        if "error" in payload:
+            raise FrankfurterAPIError(f"Frankfurter API error payload: {payload['error']}")
 
         return payload

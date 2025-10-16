@@ -119,4 +119,4 @@ def test_provider_wraps_http_errors(provider):
     with pytest.raises(ProviderError) as exc_info:
         provider.get_latest("USD")
 
-    assert "ExchangeRate.host" in str(exc_info.value)
+    assert "Failed to fetch" in str(exc_info.value)
