@@ -27,12 +27,14 @@ def _register_extensions(app: Flask) -> None:
 
     init_db(app)
     from . import models  # noqa: F401  # Ensure models are imported for metadata
-    from .services import init_registry, init_orchestrator
+    from .services import ensure_refresh_state, init_registry, init_orchestrator, init_scheduler
     from .providers.registry import init_provider
 
     init_registry(app)
     init_provider(app)
     init_orchestrator(app)
+    ensure_refresh_state(app)
+    init_scheduler(app)
 
 
 def _register_blueprints(app: Flask) -> None:
@@ -40,9 +42,11 @@ def _register_blueprints(app: Flask) -> None:
 
     from .health import bp as health_bp
     from .currencies import bp as currencies_bp
+    from .rates import bp as rates_bp
 
     app.register_blueprint(health_bp, url_prefix="/health")
     app.register_blueprint(currencies_bp, url_prefix="/currencies")
+    app.register_blueprint(rates_bp, url_prefix="/rates")
 
 
 def _register_error_handlers(app: Flask) -> None:
@@ -51,3 +55,4 @@ def _register_error_handlers(app: Flask) -> None:
     from .errors import register_error_handlers
 
     register_error_handlers(app)
+

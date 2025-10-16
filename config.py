@@ -8,6 +8,8 @@ from typing import Type
 
 class BaseConfig:
     """Base configuration shared across environments."""
+    SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+    RATES_REFRESH_CRON = os.getenv("RATES_REFRESH_CRON", "0 */1 * * *")
 
     APP_NAME = "fx-risk-calculator"
     SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
