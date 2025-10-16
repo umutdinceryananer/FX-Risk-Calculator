@@ -1,4 +1,4 @@
-﻿# FX Risk Calculator
+# FX Risk Calculator
 
 Lightweight Flask service scaffold for monitoring FX risk. The project uses an
 application factory pattern with environment-driven configuration and modular
@@ -59,3 +59,10 @@ To validate migrations locally:
 ```bash
 pytest tests/migrations
 ```
+
+
+Manual refresh:
+`ash
+curl -X POST http://127.0.0.1:5000/rates/refresh
+`
+Scheduler uses APScheduler; disable it via SCHEDULER_ENABLED=false or adjust cron with RATES_REFRESH_CRON.
