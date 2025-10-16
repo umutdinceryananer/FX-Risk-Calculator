@@ -6,6 +6,7 @@ from flask import Flask
 
 from config import get_config
 from .database import init_app as init_db
+from .cli import register_cli
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -19,6 +20,7 @@ def create_app(config_name: str | None = None) -> Flask:
     _register_blueprints(app)
     _register_error_handlers(app)
 
+    register_cli(app)
     return app
 
 
@@ -55,4 +57,5 @@ def _register_error_handlers(app: Flask) -> None:
     from .errors import register_error_handlers
 
     register_error_handlers(app)
+
 

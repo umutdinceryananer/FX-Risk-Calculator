@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Iterable
+from typing import Iterable, Sequence
 
-from app.providers import ProviderError
+from app.providers import BaseRateProvider, ProviderError
+from app.providers.schemas import RateHistorySeries, RateSnapshot
 from app.services.orchestrator import Orchestrator
 from app.services.rate_store import persist_snapshot
+from app.services.currency_registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +25,35 @@ def run_backfill(days: int, base_currency: str) -> None:
     if orchestrator is None:
         raise RuntimeError("Orchestrator is not initialised")
 
-    end_date = datetime.now(UTC).date()
-    start_date = end_date - timedelta(days=days - 1)
+    provider = _primary_provider(orchestrator)
+    base_upper = base_currency.upper()
 
-    logger.info("Backfilling rates from %s to %s", start_date, end_date)
+    codes = sorted({code.upper() for code in (registry.codes or set())} - {base_upper})
+    logger.info("Backfilling %s-days history for %s against %s symbols", days, base_upper, codes)
 
-    for single_date in _daterange(start_date, end_date):
+    for symbol in codes:
         try:
-            snapshot = orchestrator.refresh_latest(base_currency)
+            series = provider.get_history(base_upper, symbol, days)
         except ProviderError as exc:
-            logger.error("Backfill failed for %s: %s", single_date, exc)
+            logger.warning("History fetch for %s failed: %s", symbol, exc)
             continue
 
+        _persist_series(series)
+
+
+def _primary_provider(orchestrator: Orchestrator) -> BaseRateProvider:
+    primary = getattr(orchestrator, "_primary", None)
+    if primary is None or not hasattr(primary, "get_history"):
+        raise RuntimeError("Primary provider does not support history backfill")
+    return primary
+
+
+def _persist_series(series: RateHistorySeries) -> None:
+    for point in series.points:
+        snapshot = RateSnapshot(
+            base_currency=series.base_currency,
+            source=series.source,
+            timestamp=point.timestamp,
+            rates={series.quote_currency: point.rate},
+        )
         persist_snapshot(snapshot)
-        logger.info("Stored snapshot for %s from %s", snapshot.timestamp.isoformat(), snapshot.source)
-
-
-def _daterange(start_date, end_date) -> Iterable[datetime]:
-    current = start_date
-    while current <= end_date:
-        yield current
-        current += timedelta(days=1)
