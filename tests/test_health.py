@@ -52,3 +52,21 @@ def test_health_rates_endpoint_returns_snapshot_metadata(client):
         "last_updated": snapshot.timestamp.isoformat(),
         "stale": False,
     }
+
+def test_health_rates_marks_stale_when_cached_snapshot_used(client):
+    app = client.application
+    orchestrator = app.extensions.get("fx_orchestrator")
+    assert orchestrator is not None
+    snapshot = RateSnapshot(
+        base_currency="USD",
+        source="fallback",
+        timestamp=datetime(2025, 10, 16, 13, 0, tzinfo=UTC),
+        rates={"EUR": 0.9},
+    )
+    orchestrator._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=True)  # type: ignore[attr-defined]
+
+    response = client.get("/health/rates")
+    payload = response.get_json()
+    assert payload["stale"] is True
+    assert payload["source"] == "fallback"
+    assert payload["last_updated"] == snapshot.timestamp.isoformat()
