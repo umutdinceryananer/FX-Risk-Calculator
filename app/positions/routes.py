@@ -31,9 +31,9 @@ def _serialize(dto):
     return {
         "id": dto.id,
         "currency_code": dto.currency_code,
-        "amount": str(dto.amount),
-        "side": dto.side.value if isinstance(dto.side, PositionType) else str(dto.side),
-        "created_at": dto.created_at.isoformat(),
+        "amount": dto.amount,
+        "side": dto.side.value if isinstance(dto.side, PositionType) else str(dto.side).upper(),
+        "created_at": dto.created_at,
     }
 
 
@@ -104,4 +104,3 @@ class PositionItem(MethodView):
     def delete(self, portfolio_id: int, position_id: int):
         delete_position(portfolio_id, position_id)
         return None
-

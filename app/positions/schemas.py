@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from marshmallow import Schema, ValidationError, fields, validates_schema
-from marshmallow.validate import Length, OneOf, Range
+from marshmallow import Schema, ValidationError, fields, validates, validates_schema
+from marshmallow.validate import Length, Range
 
 from app.models import PositionType
 
@@ -24,11 +24,16 @@ class PositionBaseSchema(Schema):
         allow_nan=False,
     )
     side = fields.String(
-        required=False,
-        validate=OneOf(POSITION_SIDE_CHOICES),
-        data_key="side",
         load_default=PositionType.LONG.value,
+        data_key="side",
     )
+
+    @validates("side")
+    def validate_side(self, value, **kwargs):
+        if value is None:
+            return
+        if str(value).strip().upper() not in POSITION_SIDE_CHOICES:
+            raise ValidationError("Invalid position side.", field_name="side")
 
     @validates_schema
     def validate_amount_positive(self, data, **kwargs):
@@ -66,9 +71,15 @@ class PositionUpdateSchema(Schema):
     )
     side = fields.String(
         load_default=None,
-        validate=OneOf(POSITION_SIDE_CHOICES),
         data_key="side",
     )
+
+    @validates("side")
+    def validate_side(self, value, **kwargs):
+        if value is None:
+            return
+        if str(value).strip().upper() not in POSITION_SIDE_CHOICES:
+            raise ValidationError("Invalid position side.", field_name="side")
 
     @validates_schema
     def validate_payload(self, data, **kwargs):
@@ -110,7 +121,14 @@ class PositionListQuerySchema(Schema):
     page = fields.Integer(load_default=1, validate=Range(min=1))
     page_size = fields.Integer(load_default=25, data_key="page_size", validate=Range(min=1, max=200))
     currency = fields.String(load_default=None, validate=Length(equal=3))
-    side = fields.String(load_default=None, validate=OneOf(POSITION_SIDE_CHOICES))
+    side = fields.String(load_default=None)
+
+    @validates("side")
+    def validate_side(self, value, **kwargs):
+        if value is None:
+            return
+        if str(value).strip().upper() not in POSITION_SIDE_CHOICES:
+            raise ValidationError("Invalid position side.", field_name="side")
 
 
 class PositionPathParamsSchema(Schema):

@@ -88,3 +88,20 @@ Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust c
 Validation rules:
 - The `base_currency` must be an ISO-4217 code present in the seeded currency registry; otherwise a 422 response is returned.
 - Unknown portfolio identifiers result in 404 responses.
+
+## Position API
+- `GET /api/v1/portfolios/<portfolio_id>/positions?page=<page>&page_size=<limit>&currency=<CCY>&side=<LONG|SHORT>` lists positions with optional filters.
+- `POST /api/v1/portfolios/<portfolio_id>/positions` creates a position. Example:
+  ```bash
+  curl -X POST http://127.0.0.1:5000/api/v1/portfolios/1/positions \
+    -H "Content-Type: application/json" \
+    -d '{"currency_code":"EUR","amount":"2500.00","side":"SHORT"}'
+  ```
+- `GET /api/v1/portfolios/<portfolio_id>/positions/<position_id>` retrieves a position.
+- `PUT /api/v1/portfolios/<portfolio_id>/positions/<position_id>` updates currency, amount, and/or side.
+- `DELETE /api/v1/portfolios/<portfolio_id>/positions/<position_id>` removes the position.
+
+Validation rules:
+- `currency_code` must be a supported ISO code; otherwise a 422 response is returned.
+- `amount` must be a positive decimal string; zero/negative values yield a 422 with a helpful message.
+- `side` accepts `LONG` or `SHORT` (case-insensitive).
