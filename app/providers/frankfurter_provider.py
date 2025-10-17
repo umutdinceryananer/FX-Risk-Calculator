@@ -15,7 +15,7 @@ from .frankfurter_client import (
     FrankfurterClient,
     FrankfurterClientConfig,
 )
-from .utils import RebaseError, rebase_rates
+from app.services.fx_conversion import RebaseError, rebase_rates
 
 
 class FrankfurterProvider(BaseRateProvider):

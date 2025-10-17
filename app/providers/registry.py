@@ -33,6 +33,7 @@ def _default_factories() -> Iterable[tuple[str, ProviderFactory]]:
 
     factories.append((ExchangeRateHostProvider.name, exchangerate_factory))
     factories.append((FrankfurterProvider.name, frankfurter_factory))
+
     return factories
 
 

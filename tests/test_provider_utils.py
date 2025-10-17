@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.providers.utils import RebaseError, rebase_rates
+from app.services.fx_conversion import RebaseError, rebase_rates
 
 
 def test_rebase_rates_success():
