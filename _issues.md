@@ -1196,7 +1196,7 @@ Pure functions to convert native amounts to base using a rates snapshot and hand
 
 # Issue 17: Position CRUD API
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

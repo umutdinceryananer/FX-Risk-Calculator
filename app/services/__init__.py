@@ -30,4 +30,5 @@ from .position_manager import (
     list_positions,
     update_position,
 )
+from .portfolio_metrics import PortfolioValueResult, calculate_portfolio_value
 from .scheduler import ensure_refresh_state, init_scheduler
