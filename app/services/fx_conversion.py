@@ -74,7 +74,18 @@ def convert_amount(
 ) -> Decimal:
     """Convert a native amount into base using the provided rate and position side."""
 
-    raise NotImplementedError("Conversion logic will be implemented in a subsequent commit.")
+    normalized_side = str(side).strip().upper()
+    if normalized_side not in {"LONG", "SHORT"}:
+        raise ValueError(f"Invalid position side '{side}'. Expected LONG or SHORT.")
+
+    context = get_decimal_context()
+    with localcontext(context):
+        amount_dec = to_decimal(amount)
+        rate_dec = to_decimal(rate)
+        converted = amount_dec * rate_dec
+        if normalized_side == "SHORT":
+            converted = -converted
+        return converted
 
 
 def convert_position_amount(
@@ -87,10 +98,34 @@ def convert_position_amount(
 ) -> Decimal:
     """Convert a position's native amount into the portfolio base currency."""
 
-    raise NotImplementedError("Conversion logic will be implemented in a subsequent commit.")
+    position_currency_norm = normalize_currency(position_currency)
+    portfolio_base_norm = normalize_currency(portfolio_base)
+
+    if position_currency_norm == portfolio_base_norm:
+        return convert_amount(native_amount, Decimal("1"), side=side)
+
+    try:
+        rate = rate_lookup[position_currency_norm]
+    except KeyError as exc:
+        raise RebaseError(
+            f"Missing rate for currency '{position_currency_norm}' when converting position."
+        ) from exc
+
+    return convert_amount(native_amount, rate, side=side)
 
 
 def rebase_snapshot(rates_usd: Mapping[str, Decimal], new_base: str) -> Dict[str, Decimal]:
     """Rebase a canonical USD snapshot into another base currency."""
 
-    raise NotImplementedError("Snapshot rebasing will be implemented in a subsequent commit.")
+    normalized_rates: Dict[str, Decimal] = {
+        normalize_currency(code): to_decimal(value) for code, value in rates_usd.items()
+    }
+
+    usd_rate = normalized_rates.get("USD")
+    if usd_rate is None or usd_rate != 1:
+        normalized_rates["USD"] = Decimal("1")
+
+    rebased = rebase_rates(normalized_rates, new_base)
+    rebased.pop(normalize_currency(new_base), None)
+    rebased["USD"] = Decimal("1")
+    return rebased
