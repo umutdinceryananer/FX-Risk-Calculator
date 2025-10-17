@@ -24,3 +24,5 @@ dist/
 .coverage
 coverage.xml
 htmlcov/
+
+development_history.md

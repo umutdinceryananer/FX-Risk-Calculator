@@ -1284,7 +1284,7 @@ REST endpoints to create/read/update/delete portfolios with base currency valida
 
 # Issue 15: OpenAPI schema & interactive docs
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
