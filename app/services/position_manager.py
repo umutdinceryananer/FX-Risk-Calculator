@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from datetime import datetime
-from typing import List, Optional
+from decimal import Decimal
+from typing import List, Optional, Union
 
-from app.models import PositionType
+from sqlalchemy import asc
+from sqlalchemy.exc import IntegrityError
+
+from app.database import get_session
+from app.errors import APIError, ValidationError
+from app.models import Portfolio, Position, PositionType
+from app.validation import validate_currency_code
 
 
 @dataclass(frozen=True)
@@ -29,7 +35,7 @@ class PositionCreateData:
     portfolio_id: int
     currency_code: str
     amount: Decimal
-    side: PositionType
+    side: Union[PositionType, str] = PositionType.LONG
 
 
 @dataclass(frozen=True)
@@ -38,7 +44,7 @@ class PositionUpdateData:
 
     currency_code: Optional[str] = None
     amount: Optional[Decimal] = None
-    side: Optional[PositionType] = None
+    side: Optional[Union[PositionType, str]] = None
 
 
 @dataclass(frozen=True)
@@ -49,7 +55,7 @@ class PositionListParams:
     page: int = 1
     page_size: int = 25
     currency: Optional[str] = None
-    side: Optional[PositionType] = None
+    side: Optional[Union[PositionType, str]] = None
 
 
 @dataclass(frozen=True)
@@ -65,28 +71,171 @@ class PositionListResult:
 def list_positions(params: PositionListParams) -> PositionListResult:
     """Return paginated positions for the given portfolio."""
 
-    raise NotImplementedError("Position listing has not been implemented yet.")
+    portfolio = _get_portfolio(params.portfolio_id)
+
+    session = get_session()
+    query = session.query(Position).filter_by(portfolio_id=portfolio.id)
+
+    if params.currency:
+        currency_filter = validate_currency_code(params.currency, field="currency")
+        query = query.filter(Position.currency_code == currency_filter)
+
+    normalized_side = _normalize_side(params.side, field="side", allow_none=True)
+    if normalized_side is not None:
+        query = query.filter(Position.side == normalized_side)
+
+    total = query.count()
+    offset = (params.page - 1) * params.page_size
+    records = (
+        query.order_by(asc(Position.id))
+        .offset(offset)
+        .limit(params.page_size)
+        .all()
+    )
+
+    items = [_to_dto(position) for position in records]
+    return PositionListResult(
+        items=items,
+        total=total,
+        page=params.page,
+        page_size=params.page_size,
+    )
 
 
 def create_position(data: PositionCreateData) -> PositionDTO:
     """Create a new position under the specified portfolio."""
 
-    raise NotImplementedError("Position creation has not been implemented yet.")
+    portfolio = _get_portfolio(data.portfolio_id)
+    session = get_session()
+
+    currency_code = validate_currency_code(data.currency_code, field="currency_code")
+    amount = _validate_amount(data.amount)
+
+    side = _normalize_side(data.side, field="side")
+
+    position = Position(
+        portfolio_id=portfolio.id,
+        currency_code=currency_code,
+        amount=amount,
+        side=side,
+    )
+    session.add(position)
+
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        _raise_integrity_error(exc)
+
+    session.refresh(position)
+    return _to_dto(position)
 
 
 def get_position(portfolio_id: int, position_id: int) -> PositionDTO:
     """Fetch a single position belonging to a portfolio."""
 
-    raise NotImplementedError("Position retrieval has not been implemented yet.")
+    return _to_dto(_get_position(portfolio_id, position_id))
 
 
 def update_position(portfolio_id: int, position_id: int, data: PositionUpdateData) -> PositionDTO:
     """Update a position belonging to a portfolio."""
 
-    raise NotImplementedError("Position updates have not been implemented yet.")
+    _ = _get_portfolio(portfolio_id)
+    session = get_session()
+    position = _get_position(portfolio_id, position_id)
+
+    if data.currency_code is not None:
+        position.currency_code = validate_currency_code(data.currency_code, field="currency_code")
+
+    if data.amount is not None:
+        position.amount = _validate_amount(data.amount)
+
+    if data.side is not None:
+        position.side = _normalize_side(data.side, field="side")
+
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        _raise_integrity_error(exc)
+
+    session.refresh(position)
+    return _to_dto(position)
 
 
 def delete_position(portfolio_id: int, position_id: int) -> None:
     """Delete a position from the specified portfolio."""
 
-    raise NotImplementedError("Position deletion has not been implemented yet.")
+    _ = _get_portfolio(portfolio_id)
+    session = get_session()
+    position = _get_position(portfolio_id, position_id)
+    session.delete(position)
+    session.commit()
+
+
+def _get_portfolio(portfolio_id: int) -> Portfolio:
+    session = get_session()
+    portfolio = session.get(Portfolio, portfolio_id)
+    if portfolio is None:
+        raise APIError("Portfolio not found.", status_code=404)
+    return portfolio
+
+
+def _get_position(portfolio_id: int, position_id: int) -> Position:
+    session = get_session()
+    position = (
+        session.query(Position)
+        .filter(Position.portfolio_id == portfolio_id, Position.id == position_id)
+        .one_or_none()
+    )
+    if position is None:
+        raise APIError("Position not found.", status_code=404)
+    return position
+
+
+def _to_dto(position: Position) -> PositionDTO:
+    return PositionDTO(
+        id=position.id,
+        portfolio_id=position.portfolio_id,
+        currency_code=position.currency_code,
+        amount=position.amount,
+        side=position.side,
+        created_at=position.created_at,
+    )
+
+
+def _validate_amount(amount: Decimal) -> Decimal:
+    numeric = Decimal(str(amount))
+    if numeric <= 0:
+        raise ValidationError(
+            "Amount must be greater than zero.",
+            payload={"field": "amount"},
+        )
+    return numeric
+
+
+def _normalize_side(
+    value: Optional[Union[PositionType, str]],
+    *,
+    field: str,
+    allow_none: bool = False,
+) -> Optional[PositionType]:
+    if value is None:
+        return None if allow_none else PositionType.LONG
+
+    if isinstance(value, PositionType):
+        return value
+
+    normalized = str(value).strip().upper()
+    try:
+        return PositionType(normalized)
+    except ValueError as exc:
+        raise ValidationError(
+            f"Invalid position side '{value}'.",
+            payload={"field": field, "value": value},
+        ) from exc
+
+
+def _raise_integrity_error(exc: IntegrityError) -> None:
+    message = str(getattr(exc, "orig", exc))
+    raise APIError("Unable to process position request.", status_code=400) from exc
