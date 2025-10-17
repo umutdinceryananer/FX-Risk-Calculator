@@ -13,3 +13,5 @@ def test_openapi_spec_lists_endpoints(client):
     data = response.get_json()
     assert any(path.startswith("/health") for path in data["paths"].keys())
     assert "/currencies/validate" in data["paths"]
+    assert "/api/v1/portfolios" in data["paths"]
+    assert "/api/v1/portfolios/{portfolio_id}" in data["paths"]

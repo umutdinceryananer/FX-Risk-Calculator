@@ -62,11 +62,29 @@ To validate migrations locally:
 pytest tests/migrations
 ```
 
-
-Manual refresh:
-`ash
+### Manual Refresh Endpoint
+Trigger an on-demand rates refresh:
+```bash
 curl -X POST http://127.0.0.1:5000/rates/refresh
-`
-Scheduler uses APScheduler; disable it via SCHEDULER_ENABLED=false or adjust cron with RATES_REFRESH_CRON.
+```
+Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust cron with `RATES_REFRESH_CRON`.
 
-\n## API Documentation\n- Swagger UI: http://127.0.0.1:5000/docs/\n- OpenAPI spec: http://127.0.0.1:5000/docs/openapi.json\n
+## API Documentation
+- Swagger UI: http://127.0.0.1:5000/docs/
+- OpenAPI spec: http://127.0.0.1:5000/docs/openapi.json
+
+## Portfolio API
+- `GET /api/v1/portfolios?page=<page>&page_size=<limit>` lists portfolios with pagination metadata.
+- `POST /api/v1/portfolios` creates a portfolio. Example:
+  ```bash
+  curl -X POST http://127.0.0.1:5000/api/v1/portfolios \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Global Book","base_currency":"USD"}'
+  ```
+- `GET /api/v1/portfolios/<id>` retrieves a single portfolio.
+- `PUT /api/v1/portfolios/<id>` updates the name and/or base currency.
+- `DELETE /api/v1/portfolios/<id>` removes a portfolio and cascades to positions.
+
+Validation rules:
+- The `base_currency` must be an ISO-4217 code present in the seeded currency registry; otherwise a 422 response is returned.
+- Unknown portfolio identifiers result in 404 responses.
