@@ -32,13 +32,20 @@ class Portfolio(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    base_currency_code: Mapped[str] = mapped_column(
+        ForeignKey("currencies.code", ondelete="RESTRICT"),
+        nullable=False,
+    )
 
     positions: Mapped[list["Position"]] = relationship(
         "Position", back_populates="portfolio", cascade="all, delete-orphan"
     )
+    base_currency: Mapped["Currency"] = relationship(
+        "Currency", foreign_keys=[base_currency_code]
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"<Portfolio name={self.name}>"
+        return f"<Portfolio name={self.name} base={self.base_currency_code}>"
 
 
 class FxRate(Base):

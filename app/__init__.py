@@ -62,10 +62,12 @@ def _register_blueprints(app: Flask, api: Api) -> None:
 
     from .health import blp as health_blp
     from .currencies import blp as currencies_blp
+    from .portfolios import blp as portfolios_blp
     from .rates import bp as rates_bp
 
     api.register_blueprint(health_blp, url_prefix="/health")
     api.register_blueprint(currencies_blp, url_prefix="/currencies")
+    api.register_blueprint(portfolios_blp, url_prefix="/api/v1/portfolios")
     app.register_blueprint(rates_bp, url_prefix="/rates")
 
 

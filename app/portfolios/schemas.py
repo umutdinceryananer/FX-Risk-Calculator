@@ -62,9 +62,3 @@ class PortfolioListQuerySchema(Schema):
     page = fields.Integer(load_default=1, validate=Range(min=1))
     page_size = fields.Integer(load_default=20, data_key="page_size", validate=Range(min=1, max=100))
 
-
-class PortfolioIdPathSchema(Schema):
-    """Path parameter schema for portfolio identifiers."""
-
-    portfolio_id = fields.Integer(required=True, data_key="portfolio_id", validate=Range(min=1))
-
