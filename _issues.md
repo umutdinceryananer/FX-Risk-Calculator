@@ -1240,7 +1240,7 @@ Manage positions under a given portfolio with pagination and filtering.
 
 # Issue 16: Portfolio CRUD API
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

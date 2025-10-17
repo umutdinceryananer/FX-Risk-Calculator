@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, desc, func
+from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, desc, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -95,6 +96,13 @@ class FxRate(Base):
         )
 
 
+class PositionType(str, Enum):
+    """Side indicator for a position."""
+
+    LONG = "LONG"
+    SHORT = "SHORT"
+
+
 class Position(Base):
     """Represents holdings in a particular currency for a portfolio."""
 
@@ -111,6 +119,12 @@ class Position(Base):
         ForeignKey("currencies.code", ondelete="RESTRICT"), nullable=False
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    side: Mapped[PositionType] = mapped_column(
+        SqlEnum(PositionType, name="position_type"),
+        nullable=False,
+        default=PositionType.LONG,
+        server_default=PositionType.LONG.value,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -120,5 +134,5 @@ class Position(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            f"<Position portfolio={self.portfolio_id} currency={self.currency_code} amount={self.amount}>"
+            f"<Position portfolio={self.portfolio_id} currency={self.currency_code} amount={self.amount} side={self.side}>"
         )
