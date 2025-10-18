@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+
+import pytest
+
+from app.database import get_session
+from app.models import FxRate, Portfolio, Position, PositionType
+
+
+@pytest.fixture()
+def seeded_portfolio(app):
+    with app.app_context():
+        session = get_session()
+
+        portfolio = Portfolio(name="Metrics Book", base_currency_code="USD")
+        session.add(portfolio)
+        session.flush()
+
+        positions = [
+            Position(
+                portfolio_id=portfolio.id,
+                currency_code="USD",
+                amount=Decimal("100"),
+                side=PositionType.LONG,
+            ),
+            Position(
+                portfolio_id=portfolio.id,
+                currency_code="EUR",
+                amount=Decimal("200"),
+                side=PositionType.LONG,
+            ),
+            Position(
+                portfolio_id=portfolio.id,
+                currency_code="GBP",
+                amount=Decimal("50"),
+                side=PositionType.SHORT,
+            ),
+        ]
+        session.add_all(positions)
+
+        rates = [
+            FxRate(
+                base_currency_code="USD",
+                target_currency_code="EUR",
+                rate=Decimal("0.8"),
+                timestamp=datetime(2025, 10, 16, 12, 0, tzinfo=UTC),
+                source="mock",
+            ),
+            FxRate(
+                base_currency_code="USD",
+                target_currency_code="GBP",
+                rate=Decimal("0.5"),
+                timestamp=datetime(2025, 10, 16, 12, 0, tzinfo=UTC),
+                source="mock",
+            ),
+        ]
+        session.add_all(rates)
+        session.commit()
+
+        yield portfolio.id
+
+        session.query(FxRate).delete()
+        session.query(Position).delete()
+        session.query(Portfolio).delete()
+        session.commit()
+
+
+def test_portfolio_value_default_base(client, seeded_portfolio):
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/value")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["portfolio_base"] == "USD"
+    assert payload["view_base"] == "USD"
+    assert payload["priced"] == 3
+    assert payload["unpriced"] == 0
+    assert Decimal(payload["value"]) == Decimal("250")
+    assert payload["as_of"] is not None
+
+
+def test_portfolio_value_with_custom_base(client, seeded_portfolio):
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/value?base=eur")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["view_base"] == "EUR"
+    # USD 100 -> EUR 80, EUR 200 -> EUR 200, GBP short 50 -> rate 0.5 => USD -25 -> EUR -20
+    assert Decimal(payload["value"]) == Decimal("200")
+
+
+def test_portfolio_value_handles_missing_rates(client, app, seeded_portfolio):
+    with app.app_context():
+        session = get_session()
+        session.query(FxRate).delete()
+        session.commit()
+
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/value")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["priced"] == 0
+    assert payload["unpriced"] == 3
+    assert payload["value"] == "0"
+    assert payload["as_of"] is None
+
+
+def test_portfolio_value_returns_404_for_missing_portfolio(client):
+    response = client.get("/api/v1/metrics/portfolio/999/value")
+    assert response.status_code == 404

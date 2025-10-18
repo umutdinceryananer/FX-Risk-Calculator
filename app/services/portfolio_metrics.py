@@ -19,6 +19,7 @@ from app.services.fx_conversion import (
     get_decimal_context,
     normalize_currency,
     rebase_rates,
+    to_decimal,
 )
 from app.validation import validate_currency_code
 
@@ -146,9 +147,28 @@ def _rates_in_view_base(
     canonical_base: str,
     view_base: str,
 ) -> Dict[str, Decimal]:
-    if normalize_currency(view_base) == normalize_currency(canonical_base):
-        return rates_map
+    canonical_norm = normalize_currency(canonical_base)
+    view_norm = normalize_currency(view_base)
 
-    rebased = rebase_rates(rates_map, view_base)
-    rebased[normalize_currency(view_base)] = Decimal("1")
-    return rebased
+    if view_norm == canonical_norm:
+        source_rates = rates_map
+    else:
+        source_rates = rebase_rates(rates_map, view_norm)
+        source_rates[view_norm] = Decimal("1")
+
+    context = get_decimal_context()
+    base_per_unit: Dict[str, Decimal] = {}
+    with localcontext(context):
+        for code, quote in source_rates.items():
+            normalized_code = normalize_currency(code)
+            if normalized_code == view_norm:
+                base_per_unit[normalized_code] = Decimal("1")
+                continue
+            if quote == 0:
+                continue
+            rate_decimal = to_decimal(quote)
+            if rate_decimal == 0:
+                continue
+            base_per_unit[normalized_code] = Decimal("1") / rate_decimal
+
+    return base_per_unit
