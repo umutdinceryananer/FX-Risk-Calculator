@@ -1,11 +1,15 @@
 import { renderAppShell } from "./layout.js";
 import { initRouter } from "./router.js";
+import { initState, refreshMetrics } from "./state.js";
 
 const appRoot = document.querySelector("#app");
 renderAppShell(appRoot);
 
+initState({ defaultPortfolioId: 1, defaultViewBase: "USD" });
+
 const viewRoot = appRoot.querySelector("#view-root");
 initRouter(viewRoot);
+refreshMetrics();
 
 setupNavCollapse();
 

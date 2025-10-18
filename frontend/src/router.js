@@ -9,15 +9,24 @@ const routes = {
   "/portfolio": renderPortfolioView,
 };
 
+let currentCleanup = null;
+
 export function initRouter(viewRoot) {
   if (!viewRoot) {
     throw new Error("Router requires a view root element.");
   }
 
   function handleNavigation() {
+    if (typeof currentCleanup === "function") {
+      currentCleanup();
+      currentCleanup = null;
+    }
+
     const path = normalizePath(window.location.hash);
     const renderView = routes[path] ?? renderNotFoundView;
-    viewRoot.innerHTML = renderView();
+
+    viewRoot.innerHTML = "";
+    currentCleanup = renderView(viewRoot, { path }) || null;
     highlightActiveLink(path);
   }
 
