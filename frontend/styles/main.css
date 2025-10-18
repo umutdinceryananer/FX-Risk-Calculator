@@ -5,26 +5,38 @@
 body {
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background-color: #f5f7fb;
+  background-color: #eef1f8;
   color: #1d2433;
   min-height: 100vh;
 }
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.app-shell .loading-state {
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.app-content {
+  flex: 1;
+}
+
+.view-root {
+  min-height: calc(100vh - 132px);
+}
+
+.placeholder-state {
+  max-width: 420px;
+  margin: 0 auto;
 }
 
 .card {
   border: none;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
   border-radius: 1rem;
+}
+
+.navbar {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
 }
 
 .navbar-brand {
@@ -32,7 +44,29 @@ body {
   letter-spacing: 0.03em;
 }
 
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #475569;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--bs-primary);
+}
+
 .nav-link.active {
   font-weight: 600;
   color: var(--bs-primary) !important;
+}
+
+.badge {
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 767px) {
+  .view-root {
+    min-height: calc(100vh - 112px);
+  }
 }

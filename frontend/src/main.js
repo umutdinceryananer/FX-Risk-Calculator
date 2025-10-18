@@ -1,17 +1,30 @@
+import { renderAppShell } from "./layout.js";
+import { initRouter } from "./router.js";
+
 const appRoot = document.querySelector("#app");
+renderAppShell(appRoot);
 
-if (!appRoot) {
-  throw new Error("Cannot bootstrap application without #app root element.");
+const viewRoot = appRoot.querySelector("#view-root");
+initRouter(viewRoot);
+
+setupNavCollapse();
+
+function setupNavCollapse() {
+  const collapseElement = document.querySelector("#appNavbar");
+  const bootstrapLib = window.bootstrap;
+  if (!collapseElement || !bootstrapLib) {
+    return;
+  }
+
+  const collapse = bootstrapLib.Collapse.getOrCreateInstance(collapseElement, {
+    toggle: false,
+  });
+
+  document.querySelectorAll("[data-nav-link]").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (collapseElement.classList.contains("show")) {
+        collapse.hide();
+      }
+    });
+  });
 }
-
-const template = document.createElement("template");
-template.innerHTML = `
-  <div class="loading-state">
-    <div class="text-center">
-      <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
-      <p class="text-muted mb-0">Loading FX Risk Calculator…</p>
-    </div>
-  </div>
-`;
-
-appRoot.appendChild(template.content.cloneNode(true));
