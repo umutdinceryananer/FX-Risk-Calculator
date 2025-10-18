@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from flask.views import MethodView
 
-from app.services import calculate_currency_exposure, calculate_daily_pnl, calculate_portfolio_value
+from app.services import (
+    calculate_currency_exposure,
+    calculate_daily_pnl,
+    calculate_portfolio_value,
+    simulate_currency_shock,
+)
 
 from . import blp
 from .schemas import (
@@ -14,6 +19,9 @@ from .schemas import (
     PortfolioDailyPnLResponseSchema,
     PortfolioValueQuerySchema,
     PortfolioValueResponseSchema,
+    PortfolioWhatIfQuerySchema,
+    PortfolioWhatIfRequestSchema,
+    PortfolioWhatIfResponseSchema,
 )
 
 
@@ -93,4 +101,30 @@ class PortfolioDailyPnL(MethodView):
             "unpriced_current": result.unpriced_current,
             "priced_previous": result.priced_previous,
             "unpriced_previous": result.unpriced_previous,
+        }
+
+
+@blp.route("/portfolio/<int:portfolio_id>/whatif")
+class PortfolioWhatIf(MethodView):
+    @blp.arguments(PortfolioWhatIfRequestSchema)
+    @blp.arguments(PortfolioWhatIfQuerySchema, location="query")
+    @blp.response(200, PortfolioWhatIfResponseSchema())
+    def post(self, payload, query_params, portfolio_id: int):
+        result = simulate_currency_shock(
+            portfolio_id,
+            currency=payload["currency"],
+            shock_pct=payload["shock_pct"],
+            view_base=query_params.get("base") if query_params else None,
+        )
+
+        return {
+            "portfolio_id": result.portfolio_id,
+            "portfolio_base": result.portfolio_base,
+            "view_base": result.view_base,
+            "shocked_currency": result.shocked_currency,
+            "shock_pct": result.shock_pct,
+            "current_value": result.current_value,
+            "new_value": result.new_value,
+            "delta_value": result.delta_value,
+            "as_of": result.as_of,
         }

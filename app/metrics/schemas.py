@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 
 class PortfolioValueQuerySchema(Schema):
@@ -54,4 +54,30 @@ class PortfolioDailyPnLResponseSchema(Schema):
     unpriced_current = fields.Integer(required=True, data_key="unpriced_current")
     priced_previous = fields.Integer(required=True, data_key="priced_previous")
     unpriced_previous = fields.Integer(required=True, data_key="unpriced_previous")
+
+
+class PortfolioWhatIfQuerySchema(Schema):
+    base = fields.String(load_default=None, data_key="base")
+
+
+class PortfolioWhatIfRequestSchema(Schema):
+    currency = fields.String(required=True, data_key="currency")
+    shock_pct = fields.Decimal(
+        required=True,
+        as_string=True,
+        data_key="shock_pct",
+        validate=validate.Range(min=-10, max=10, error="'shock_pct' must be between -10 and 10."),
+    )
+
+
+class PortfolioWhatIfResponseSchema(Schema):
+    portfolio_id = fields.Integer(required=True, data_key="portfolio_id")
+    portfolio_base = fields.String(required=True, data_key="portfolio_base")
+    view_base = fields.String(required=True, data_key="view_base")
+    shocked_currency = fields.String(required=True, data_key="shocked_currency")
+    shock_pct = fields.Decimal(required=True, as_string=True, data_key="shock_pct")
+    current_value = fields.Decimal(required=True, as_string=True, data_key="current_value")
+    new_value = fields.Decimal(required=True, as_string=True, data_key="new_value")
+    delta_value = fields.Decimal(required=True, as_string=True, data_key="delta_value")
+    as_of = fields.DateTime(allow_none=True, data_key="as_of")
 
