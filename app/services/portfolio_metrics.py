@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, localcontext
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from flask import current_app
 from sqlalchemy import desc
@@ -172,3 +172,6 @@ def _rates_in_view_base(
             base_per_unit[normalized_code] = Decimal("1") / rate_decimal
 
     return base_per_unit
+
+
+
