@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal, localcontext
 from typing import Dict, List, Optional
 
@@ -418,8 +418,8 @@ def calculate_daily_pnl(
         pnl=pnl,
         value_current=value_current,
         value_previous=value_previous,
-        as_of=latest_timestamp,
-        prev_date=previous_timestamp,
+        as_of=latest_timestamp.replace(tzinfo=UTC) if latest_timestamp.tzinfo is None else latest_timestamp,
+        prev_date=previous_timestamp.replace(tzinfo=UTC) if previous_timestamp.tzinfo is None else previous_timestamp,
         positions_changed=False,
         priced_current=priced_current,
         unpriced_current=unpriced_current,
