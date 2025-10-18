@@ -1016,7 +1016,7 @@ Simulate a ┬▒10% shock in one currency and return impact.
 
 # Issue 21: Metrics: daily P&L
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

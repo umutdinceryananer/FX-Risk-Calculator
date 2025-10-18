@@ -35,8 +35,10 @@ from .portfolio_metrics import (
     PortfolioDailyPnLResult,
     PortfolioExposureResult,
     PortfolioValueResult,
+    PortfolioWhatIfResult,
     calculate_currency_exposure,
     calculate_daily_pnl,
     calculate_portfolio_value,
+    simulate_currency_shock,
 )
 from .scheduler import ensure_refresh_state, init_scheduler

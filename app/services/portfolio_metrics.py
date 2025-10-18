@@ -11,7 +11,7 @@ from flask import current_app
 from sqlalchemy import desc
 
 from app.database import get_session
-from app.errors import APIError
+from app.errors import APIError, ValidationError
 from app.models import FxRate, Portfolio, Position
 from app.services.fx_conversion import (
     RebaseError,
@@ -316,6 +316,19 @@ class PortfolioDailyPnLResult:
     unpriced_previous: int
 
 
+@dataclass(frozen=True)
+class PortfolioWhatIfResult:
+    portfolio_id: int
+    portfolio_base: str
+    view_base: str
+    shocked_currency: str
+    shock_pct: Decimal
+    current_value: Decimal
+    new_value: Decimal
+    delta_value: Decimal
+    as_of: Optional[datetime]
+
+
 def calculate_daily_pnl(
     portfolio_id: int,
     *,
@@ -425,6 +438,108 @@ def calculate_daily_pnl(
         unpriced_current=unpriced_current,
         priced_previous=priced_previous,
         unpriced_previous=unpriced_previous,
+    )
+
+
+def simulate_currency_shock(
+    portfolio_id: int,
+    *,
+    currency: str,
+    shock_pct: Decimal,
+    view_base: Optional[str] = None,
+) -> PortfolioWhatIfResult:
+    """Evaluate the impact of a single-currency shock on portfolio value."""
+
+    session = get_session()
+    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    if portfolio is None:
+        raise APIError("Portfolio not found.", status_code=404)
+
+    positions = (
+        session.query(Position)
+        .filter(Position.portfolio_id == portfolio_id)
+        .all()
+    )
+
+    if not positions:
+        raise ValidationError(
+            "Portfolio has no positions to simulate.",
+            payload={"field": "portfolio_id"},
+        )
+
+    portfolio_base = normalize_currency(portfolio.base_currency_code)
+    resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
+    shocked_currency = validate_currency_code(currency, field="currency")
+
+    context = get_decimal_context()
+    with localcontext(context):
+        pct_decimal = to_decimal(shock_pct)
+        if pct_decimal < Decimal("-10") or pct_decimal > Decimal("10"):
+            raise ValidationError(
+                "'shock_pct' must be between -10 and 10.",
+                payload={"field": "shock_pct"},
+            )
+        shock_factor = Decimal("1") + (pct_decimal / Decimal("100"))
+
+    canonical_base = normalize_currency(current_app.config.get("FX_CANONICAL_BASE", "USD"))
+    rates_map, as_of = _latest_rates(session, canonical_base)
+
+    if as_of is None or not rates_map:
+        raise ValidationError(
+            "FX rates are unavailable for simulation.",
+            payload={"field": "rates"},
+        )
+
+    effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+
+    current_value, priced, unpriced = _portfolio_value_from_rates(
+        positions,
+        resolved_view_base,
+        effective_rates,
+    )
+
+    if unpriced > 0:
+        raise ValidationError(
+            "Unable to price all positions with current FX rates.",
+            payload={"unpriced_positions": unpriced},
+        )
+
+    base_rate = effective_rates.get(shocked_currency)
+    if base_rate is None:
+        raise ValidationError(
+            f"Missing FX rate for currency '{shocked_currency}'.",
+            payload={"field": "currency"},
+        )
+
+    shocked_rates = dict(effective_rates)
+    with localcontext(context):
+        shocked_rates[shocked_currency] = base_rate * shock_factor
+
+    new_value, priced_new, unpriced_new = _portfolio_value_from_rates(
+        positions,
+        resolved_view_base,
+        shocked_rates,
+    )
+
+    if unpriced_new > 0:
+        raise ValidationError(
+            "Unable to price all positions with shocked FX rates.",
+            payload={"unpriced_positions": unpriced_new},
+        )
+
+    with localcontext(context):
+        delta_value = new_value - current_value
+
+    return PortfolioWhatIfResult(
+        portfolio_id=portfolio_id,
+        portfolio_base=portfolio_base,
+        view_base=resolved_view_base,
+        shocked_currency=shocked_currency,
+        shock_pct=pct_decimal,
+        current_value=current_value,
+        new_value=new_value,
+        delta_value=delta_value,
+        as_of=as_of,
     )
 
 
