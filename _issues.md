@@ -1062,7 +1062,7 @@ Compute P&L between today (or latest) and previous available day; flag if positi
 
 # Issue 20: Metrics: exposure by currency
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1108,7 +1108,7 @@ Aggregate exposure per currency with optional top-N and ΓÇ£OtherΓÇ¥ groupi
 
 # Issue 19: Metrics: portfolio value
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -1150,7 +1150,7 @@ Compute aggregate portfolio value in base currency.
 
 # Issue 18: Conversion utils (base conversion & LONG/SHORT sign)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

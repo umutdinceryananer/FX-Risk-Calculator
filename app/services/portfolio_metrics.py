@@ -299,4 +299,195 @@ def calculate_currency_exposure(
     )
 
 
+@dataclass(frozen=True)
+class PortfolioDailyPnLResult:
+    portfolio_id: int
+    portfolio_base: str
+    view_base: str
+    pnl: Decimal
+    value_current: Decimal
+    value_previous: Optional[Decimal]
+    as_of: Optional[datetime]
+    prev_date: Optional[datetime]
+    positions_changed: bool
+    priced_current: int
+    unpriced_current: int
+    priced_previous: int
+    unpriced_previous: int
+
+
+def calculate_daily_pnl(
+    portfolio_id: int,
+    *,
+    view_base: Optional[str] = None,
+) -> PortfolioDailyPnLResult:
+    session = get_session()
+    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    if portfolio is None:
+        raise APIError("Portfolio not found.", status_code=404)
+
+    positions = (
+        session.query(Position)
+        .filter(Position.portfolio_id == portfolio_id)
+        .all()
+    )
+
+    portfolio_base = normalize_currency(portfolio.base_currency_code)
+    resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
+
+    if not positions:
+        zero = Decimal("0")
+        return PortfolioDailyPnLResult(
+            portfolio_id=portfolio_id,
+            portfolio_base=portfolio_base,
+            view_base=resolved_view_base,
+            pnl=zero,
+            value_current=zero,
+            value_previous=None,
+            as_of=None,
+            prev_date=None,
+            positions_changed=False,
+            priced_current=0,
+            unpriced_current=0,
+            priced_previous=0,
+            unpriced_previous=0,
+        )
+
+    canonical_base = normalize_currency(current_app.config.get("FX_CANONICAL_BASE", "USD"))
+    latest_timestamp, previous_timestamp = _latest_two_timestamps(session, canonical_base)
+
+    if latest_timestamp is None or previous_timestamp is None:
+        zero = Decimal("0")
+        return PortfolioDailyPnLResult(
+            portfolio_id=portfolio_id,
+            portfolio_base=portfolio_base,
+            view_base=resolved_view_base,
+            pnl=zero,
+            value_current=zero,
+            value_previous=None,
+            as_of=latest_timestamp,
+            prev_date=previous_timestamp,
+            positions_changed=False,
+            priced_current=0,
+            unpriced_current=len(positions),
+            priced_previous=0,
+            unpriced_previous=len(positions),
+        )
+
+    latest_rates = _rates_for_timestamp(session, canonical_base, latest_timestamp)
+    previous_rates = _rates_for_timestamp(session, canonical_base, previous_timestamp)
+
+    if not latest_rates or not previous_rates:
+        zero = Decimal("0")
+        return PortfolioDailyPnLResult(
+            portfolio_id=portfolio_id,
+            portfolio_base=portfolio_base,
+            view_base=resolved_view_base,
+            pnl=zero,
+            value_current=zero,
+            value_previous=None,
+            as_of=latest_timestamp,
+            prev_date=previous_timestamp,
+            positions_changed=False,
+            priced_current=0,
+            unpriced_current=len(positions),
+            priced_previous=0,
+            unpriced_previous=len(positions),
+        )
+
+    effective_latest = _rates_in_view_base(latest_rates, canonical_base, resolved_view_base)
+    effective_previous = _rates_in_view_base(previous_rates, canonical_base, resolved_view_base)
+
+    value_current, priced_current, unpriced_current = _portfolio_value_from_rates(
+        positions,
+        resolved_view_base,
+        effective_latest,
+    )
+    value_previous, priced_previous, unpriced_previous = _portfolio_value_from_rates(
+        positions,
+        resolved_view_base,
+        effective_previous,
+    )
+
+    pnl = value_current - value_previous if value_previous is not None else value_current
+
+    return PortfolioDailyPnLResult(
+        portfolio_id=portfolio_id,
+        portfolio_base=portfolio_base,
+        view_base=resolved_view_base,
+        pnl=pnl,
+        value_current=value_current,
+        value_previous=value_previous,
+        as_of=latest_timestamp,
+        prev_date=previous_timestamp,
+        positions_changed=False,
+        priced_current=priced_current,
+        unpriced_current=unpriced_current,
+        priced_previous=priced_previous,
+        unpriced_previous=unpriced_previous,
+    )
+
+
+def _latest_two_timestamps(session, canonical_base: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+    rows = (
+        session.query(FxRate.timestamp)
+        .filter(FxRate.base_currency_code == canonical_base)
+        .order_by(desc(FxRate.timestamp))
+        .distinct()
+        .limit(2)
+        .all()
+    )
+    timestamps = [row[0] for row in rows]
+    if not timestamps:
+        return None, None
+    if len(timestamps) == 1:
+        return timestamps[0], None
+    return timestamps[0], timestamps[1]
+
+
+def _rates_for_timestamp(session, canonical_base: str, timestamp: datetime) -> Dict[str, Decimal]:
+    rows = (
+        session.query(FxRate)
+        .filter(
+            FxRate.base_currency_code == canonical_base,
+            FxRate.timestamp == timestamp,
+        )
+        .all()
+    )
+    if not rows:
+        return {}
+    normalized_base = normalize_currency(canonical_base)
+    rates: Dict[str, Decimal] = {normalized_base: Decimal("1")}
+    for row in rows:
+        rates[normalize_currency(row.target_currency_code)] = row.rate
+    return rates
+
+
+def _portfolio_value_from_rates(
+    positions: List[Position],
+    view_base: str,
+    rate_lookup: Dict[str, Decimal],
+) -> Tuple[Decimal, int, int]:
+    total = Decimal("0")
+    priced = 0
+    unpriced = 0
+    context = get_decimal_context()
+    with localcontext(context):
+        for position in positions:
+            try:
+                converted = convert_position_amount(
+                    native_amount=position.amount,
+                    position_currency=position.currency_code,
+                    portfolio_base=view_base,
+                    rate_lookup=rate_lookup,
+                    side=position.side.value,
+                )
+            except RebaseError:
+                unpriced += 1
+                continue
+            priced += 1
+            total += converted
+    return total, priced, unpriced
+
+
 
