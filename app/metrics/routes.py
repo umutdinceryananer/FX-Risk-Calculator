@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from flask.views import MethodView
 
-from app.services import calculate_currency_exposure, calculate_portfolio_value
+from app.services import calculate_currency_exposure, calculate_daily_pnl, calculate_portfolio_value
 
 from . import blp
 from .schemas import (
     PortfolioExposureQuerySchema,
     PortfolioExposureResponseSchema,
+    PortfolioDailyPnLQuerySchema,
+    PortfolioDailyPnLResponseSchema,
     PortfolioValueQuerySchema,
     PortfolioValueResponseSchema,
 )
@@ -64,4 +66,31 @@ class PortfolioExposure(MethodView):
             "priced": result.priced,
             "unpriced": result.unpriced,
             "as_of": result.as_of,
+        }
+
+
+@blp.route("/portfolio/<int:portfolio_id>/pnl/daily")
+class PortfolioDailyPnL(MethodView):
+    @blp.arguments(PortfolioDailyPnLQuerySchema, location="query")
+    @blp.response(200, PortfolioDailyPnLResponseSchema())
+    def get(self, query_params, portfolio_id: int):
+        result = calculate_daily_pnl(
+            portfolio_id,
+            view_base=query_params.get("base"),
+        )
+
+        return {
+            "portfolio_id": result.portfolio_id,
+            "portfolio_base": result.portfolio_base,
+            "view_base": result.view_base,
+            "pnl": result.pnl,
+            "value_current": result.value_current,
+            "value_previous": result.value_previous,
+            "as_of": result.as_of,
+            "prev_date": result.prev_date,
+            "positions_changed": result.positions_changed,
+            "priced_current": result.priced_current,
+            "unpriced_current": result.unpriced_current,
+            "priced_previous": result.priced_previous,
+            "unpriced_previous": result.unpriced_previous,
         }
