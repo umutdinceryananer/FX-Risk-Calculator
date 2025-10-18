@@ -123,5 +123,29 @@ Validation rules:
     "as_of": "2025-10-16T12:00:00+00:00"
   }
   ```
-- `value` excludes unpriced positions; `unpriced` counts positions missing rates, and `priced` gives the number successfully valued.
-- `as_of` reflects the timestamp of the latest canonical FX snapshot used for the calculation.
+  - `value` excludes unpriced positions; `unpriced` counts positions missing rates, and `priced` gives the number successfully valued.
+  - `as_of` reflects the timestamp of the latest canonical FX snapshot used for the calculation.
+
+- `GET /api/v1/metrics/portfolio/<portfolio_id>/exposure?top_n=<N>&base=<CCY>` groups exposure by currency (tail aggregated into `OTHER` when `top_n` is reached) in the requested base.
+  ```bash
+  curl "http://127.0.0.1:5000/api/v1/metrics/portfolio/1/exposure?top_n=3&base=EUR"
+  ```
+  Response example:
+  ```json
+  {
+    "portfolio_id": 1,
+    "portfolio_base": "USD",
+    "view_base": "EUR",
+    "exposures": [
+      {"currency_code": "EUR", "net_native": "200", "base_equivalent": "200"},
+      {"currency_code": "USD", "net_native": "150", "base_equivalent": "133.333333333333"},
+      {"currency_code": "OTHER", "net_native": "960", "base_equivalent": "-33.333333333333"}
+    ],
+    "priced": 4,
+    "unpriced": 0,
+    "as_of": "2025-10-17T12:00:00+00:00"
+  }
+  ```
+  - `net_native` preserves the signed native amount (LONG positive, SHORT negative).
+  - `base_equivalent` shows the converted amount in the requested view base; currencies without rates are excluded and counted in `unpriced`.
+
