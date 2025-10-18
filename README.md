@@ -105,3 +105,23 @@ Validation rules:
 - `currency_code` must be a supported ISO code; otherwise a 422 response is returned.
 - `amount` must be a positive decimal string; zero/negative values yield a 422 with a helpful message.
 - `side` accepts `LONG` or `SHORT` (case-insensitive).
+
+## Metrics API
+- `GET /api/v1/metrics/portfolio/<portfolio_id>/value?base=<CCY>` returns the aggregate portfolio value in the requested base (defaults to the portfolio base).
+  ```bash
+  curl http://127.0.0.1:5000/api/v1/metrics/portfolio/1/value?base=EUR
+  ```
+  Response example:
+  ```json
+  {
+    "portfolio_id": 1,
+    "portfolio_base": "USD",
+    "view_base": "EUR",
+    "value": "200.00",
+    "priced": 3,
+    "unpriced": 0,
+    "as_of": "2025-10-16T12:00:00+00:00"
+  }
+  ```
+- `value` excludes unpriced positions; `unpriced` counts positions missing rates, and `priced` gives the number successfully valued.
+- `as_of` reflects the timestamp of the latest canonical FX snapshot used for the calculation.

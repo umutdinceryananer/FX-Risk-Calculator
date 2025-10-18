@@ -17,3 +17,4 @@ def test_openapi_spec_lists_endpoints(client):
     assert "/api/v1/portfolios/{portfolio_id}" in data["paths"]
     assert "/api/v1/portfolios/{portfolio_id}/positions" in data["paths"]
     assert "/api/v1/portfolios/{portfolio_id}/positions/{position_id}" in data["paths"]
+    assert "/api/v1/metrics/portfolio/{portfolio_id}/value" in data["paths"]
