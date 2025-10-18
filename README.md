@@ -148,4 +148,28 @@ Validation rules:
   ```
   - `net_native` preserves the signed native amount (LONG positive, SHORT negative).
   - `base_equivalent` shows the converted amount in the requested view base; currencies without rates are excluded and counted in `unpriced`.
+- `GET /api/v1/metrics/portfolio/<portfolio_id>/pnl/daily?base=<CCY>` compares the latest snapshot to the previous available trading day and reports the daily P&L, snapshot timestamps, and whether the position composition changed.
+  ```bash
+  curl http://127.0.0.1:5000/api/v1/metrics/portfolio/1/pnl/daily?base=EUR
+  ```
+  Response example:
+  ```json
+  {
+    "portfolio_id": 1,
+    "portfolio_base": "USD",
+    "view_base": "EUR",
+    "pnl": "-8.00",
+    "value_current": "240.00",
+    "value_previous": "248.00",
+    "as_of": "2025-10-20T12:00:00+00:00",
+    "prev_date": "2025-10-19T12:00:00+00:00",
+    "positions_changed": false,
+    "priced_current": 2,
+    "unpriced_current": 0,
+    "priced_previous": 2,
+    "unpriced_previous": 0
+  }
+  ```
+  - `positions_changed` will flip to `true` if the currency composition (counts by currency/side) differs between snapshots.
+  - `value_previous` is `null` when no earlier snapshot exists; in this case `pnl` equals the current value.
 
