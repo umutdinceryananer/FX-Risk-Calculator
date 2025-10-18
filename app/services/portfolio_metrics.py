@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, localcontext
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from flask import current_app
 from sqlalchemy import desc
@@ -511,9 +511,11 @@ def simulate_currency_shock(
             payload={"field": "currency"},
         )
 
-    shocked_rates = dict(effective_rates)
-    with localcontext(context):
-        shocked_rates[shocked_currency] = base_rate * shock_factor
+    shocked_rates = _apply_currency_shock(
+        effective_rates,
+        shocked_currency,
+        shock_factor,
+    )
 
     new_value, priced_new, unpriced_new = _portfolio_value_from_rates(
         positions,
@@ -603,6 +605,27 @@ def _portfolio_value_from_rates(
             priced += 1
             total += converted
     return total, priced, unpriced
+
+
+def _apply_currency_shock(
+    rates: Mapping[str, Decimal],
+    currency: str,
+    shock_factor: Decimal,
+) -> Dict[str, Decimal]:
+    """Return a new rates mapping with the specified currency shocked."""
+
+    normalized_currency = normalize_currency(currency)
+    context = get_decimal_context()
+    with localcontext(context):
+        shocked: Dict[str, Decimal] = {}
+        for code, value in rates.items():
+            code_norm = normalize_currency(code)
+            rate_value = to_decimal(value)
+            if code_norm == normalized_currency:
+                shocked[code_norm] = rate_value * shock_factor
+            else:
+                shocked[code_norm] = rate_value
+    return shocked
 
 
 

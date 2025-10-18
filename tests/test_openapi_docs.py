@@ -20,3 +20,4 @@ def test_openapi_spec_lists_endpoints(client):
     assert "/api/v1/metrics/portfolio/{portfolio_id}/value" in data["paths"]
     assert "/api/v1/metrics/portfolio/{portfolio_id}/exposure" in data["paths"]
     assert "/api/v1/metrics/portfolio/{portfolio_id}/pnl/daily" in data["paths"]
+    assert "/api/v1/metrics/portfolio/{portfolio_id}/whatif" in data["paths"]
