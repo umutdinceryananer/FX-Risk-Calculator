@@ -60,6 +60,7 @@ def _register_extensions(app: Flask) -> Api:
 def _register_blueprints(app: Flask, api: Api) -> None:
     """Register Flask blueprints."""
 
+    from .frontend import blp as frontend_blp
     from .health import blp as health_blp
     from .currencies import blp as currencies_blp
     from .portfolios import blp as portfolios_blp
@@ -72,6 +73,7 @@ def _register_blueprints(app: Flask, api: Api) -> None:
     api.register_blueprint(portfolios_blp, url_prefix="/api/v1/portfolios")
     api.register_blueprint(positions_blp, url_prefix="/api/v1/portfolios")
     api.register_blueprint(metrics_blp, url_prefix="/api/v1/metrics")
+    app.register_blueprint(frontend_blp)
     app.register_blueprint(rates_bp, url_prefix="/rates")
 
 

@@ -972,7 +972,7 @@ Bootstrap 5 shell with navbar and client-side routing for `/dashboard` and `/por
 
 # Issue 22: Metrics: what-if (single currency shock)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
