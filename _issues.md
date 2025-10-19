@@ -886,7 +886,7 @@ Visualize exposure by currency as bar/pie with tooltips.
 
 # Issue 24: Dashboard KPIs + refresh FX + stale banner
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

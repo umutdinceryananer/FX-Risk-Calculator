@@ -21,6 +21,12 @@ const state = {
     loading: false,
     error: null,
   },
+  charts: {
+    exposure: {
+      labels: [],
+      datasets: [],
+    },
+  },
 };
 
 export function initState({ defaultPortfolioId, defaultViewBase } = {}) {
@@ -74,6 +80,8 @@ export async function refreshData() {
       draft.health.loading = false;
       draft.health.error = null;
       draft.refresh.error = null;
+
+      draft.charts.exposure = buildExposureChartData(exposure);
     });
   } catch (error) {
     updateState((draft) => {
@@ -153,6 +161,7 @@ function updateState(mutator) {
   state.metrics = { ...draft.metrics };
   state.health = { ...draft.health };
   state.refresh = { ...draft.refresh };
+  state.charts = { ...draft.charts };
   notify();
 }
 
@@ -181,5 +190,57 @@ function cloneState() {
       loading: state.refresh.loading,
       error: state.refresh.error ? { ...state.refresh.error } : null,
     },
+    charts: {
+      exposure: {
+        labels: [...state.charts.exposure.labels],
+        datasets: state.charts.exposure.datasets.map((dataset) => ({ ...dataset })),
+      },
+    },
   };
+}
+
+function buildExposureChartData(exposure) {
+  const chart = {
+    labels: [],
+    datasets: [
+      {
+        label: "Base Equivalent",
+        data: [],
+        backgroundColor: [],
+      },
+    ],
+  };
+
+  if (!exposure || !Array.isArray(exposure.exposures) || exposure.exposures.length === 0) {
+    return chart;
+  }
+
+  const exposures = exposure.exposures;
+  chart.labels = exposures.map((item) => item.currency_code);
+  chart.datasets[0].data = exposures.map((item) => Number(item.base_equivalent || 0));
+  chart.datasets[0].backgroundColor = buildPalette(exposures.length);
+  return chart;
+}
+
+function buildPalette(count) {
+  const baseColors = [
+    "#2563eb",
+    "#10b981",
+    "#f59e0b",
+    "#f97316",
+    "#8b5cf6",
+    "#ec4899",
+    "#22d3ee",
+  ];
+
+  if (count <= baseColors.length) {
+    return baseColors.slice(0, count);
+  }
+
+  const colors = [];
+  for (let i = 0; i < count; i += 1) {
+    const hue = Math.floor((360 / count) * i);
+    colors.push(`hsl(${hue} 70% 55%)`);
+  }
+  return colors;
 }
