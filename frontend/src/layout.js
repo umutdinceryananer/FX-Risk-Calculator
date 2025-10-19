@@ -13,12 +13,12 @@ export function renderAppShell(rootEl) {
           <div id="view-root" class="view-root">
             <div class="placeholder-state text-center text-muted py-5">
               <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
-              <p class="fw-semibold">Preparing dashboard…</p>
+              <p class="fw-semibold">Preparing dashboard...</p>
             </div>
           </div>
         </div>
       </main>
+      <div class="toast-container position-fixed top-0 end-0 p-3" data-toast-container></div>
     </div>
   `;
 }
-

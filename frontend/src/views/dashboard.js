@@ -1,4 +1,7 @@
-import { subscribe, setViewBase } from "../state.js";
+import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
+import { showToast } from "../ui/toast.js";
+
+let refreshDebounceTimer = null;
 
 export function renderDashboardView(root) {
   if (!root) {
@@ -8,21 +11,40 @@ export function renderDashboardView(root) {
   root.innerHTML = template();
 
   const baseSelect = root.querySelector("[data-view-base]");
-  baseSelect.addEventListener("change", (event) => {
-    setViewBase(event.target.value);
-  });
-
+  const refreshButton = root.querySelector("[data-refresh-button]");
+  const metricCards = Array.from(root.querySelectorAll("[data-metric-card]"));
+  const banner = root.querySelector("[data-stale-banner]");
   const healthSummary = root.querySelector("[data-health-summary]");
   const sourceNode = root.querySelector("[data-health-source]");
   const staleNode = root.querySelector("[data-health-stale]");
   const updatedNode = root.querySelector("[data-health-updated]");
-  const metricCards = Array.from(root.querySelectorAll("[data-metric-card]"));
-  const banner = root.querySelector("[data-stale-banner]");
+
+  baseSelect.addEventListener("change", (event) => {
+    setViewBase(event.target.value);
+  });
+
+  refreshButton.addEventListener("click", async () => {
+    if (refreshDebounceTimer) {
+      return;
+    }
+    refreshDebounceTimer = setTimeout(() => {
+      refreshDebounceTimer = null;
+    }, 600);
+
+    const result = await triggerManualRefresh();
+    showToast({
+      title: result.ok ? "Refresh queued" : "Refresh failed",
+      message: result.message,
+      variant: result.ok ? "success" : "danger",
+    });
+  });
 
   const unsubscribe = subscribe((state) => {
     if (baseSelect.value !== state.viewBase) {
       baseSelect.value = state.viewBase;
     }
+
+    renderRefreshButton(refreshButton, state.refresh);
     renderMetrics(metricCards, state.metrics);
     renderBanner(banner, state.metrics, state.health);
     renderHealthSummary({
@@ -47,9 +69,9 @@ function template() {
         </div>
         <div class="d-flex flex-column align-items-md-end gap-2">
           <div class="d-flex align-items-center gap-3 justify-content-end flex-wrap text-muted small" data-health-summary>
-            <span>Source: <span class="fw-semibold text-body" data-health-source>â€”</span></span>
-            <span>Stale: <span class="fw-semibold text-body" data-health-stale>â€”</span></span>
-            <span>Last updated: <span class="fw-semibold text-body" data-health-updated>â€”</span></span>
+            <span>Source: <span class="fw-semibold text-body" data-health-source>—</span></span>
+            <span>Stale: <span class="fw-semibold text-body" data-health-stale>—</span></span>
+            <span>Last updated: <span class="fw-semibold text-body" data-health-updated>—</span></span>
           </div>
           <div class="d-flex align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
@@ -61,9 +83,10 @@ function template() {
                 <option value="TRY">TRY</option>
               </select>
             </div>
-            <button class="btn btn-primary shadow-sm d-flex align-items-center gap-2" type="button" disabled>
-              <i class="bi bi-arrow-clockwise"></i>
-              Refresh FX (coming soon)
+            <button class="btn btn-primary shadow-sm d-flex align-items-center gap-2" type="button" data-refresh-button>
+              <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" data-refresh-spinner></span>
+              <i class="bi bi-arrow-clockwise" data-refresh-icon></i>
+              <span data-refresh-label>Refresh FX</span>
             </button>
           </div>
         </div>
@@ -209,6 +232,29 @@ function renderBanner(bannerNode, metrics, health) {
   bannerNode.classList.toggle("d-none", !isStale);
 }
 
+function renderRefreshButton(button, refreshState) {
+  if (!button) {
+    return;
+  }
+
+  const spinner = button.querySelector("[data-refresh-spinner]");
+  const icon = button.querySelector("[data-refresh-icon]");
+  const label = button.querySelector("[data-refresh-label]");
+
+  const loading = Boolean(refreshState?.loading);
+  button.disabled = loading;
+
+  if (spinner) {
+    spinner.classList.toggle("d-none", !loading);
+  }
+  if (icon) {
+    icon.classList.toggle("d-none", loading);
+  }
+  if (label) {
+    label.textContent = loading ? "Refreshing..." : "Refresh FX";
+  }
+}
+
 function renderHealthSummary({ container, sourceNode, staleNode, updatedNode, health }) {
   if (!container) {
     return;
@@ -216,23 +262,23 @@ function renderHealthSummary({ container, sourceNode, staleNode, updatedNode, he
 
   if (health.loading) {
     container.classList.add("text-muted");
-    updateText(sourceNode, "Loadingâ€¦");
-    updateText(staleNode, "Loadingâ€¦");
-    updateText(updatedNode, "Loadingâ€¦");
+    updateText(sourceNode, "Loading...");
+    updateText(staleNode, "Loading...");
+    updateText(updatedNode, "Loading...");
     return;
   }
 
   if (health.error) {
     container.classList.add("text-danger");
     updateText(sourceNode, "Unavailable");
-    updateText(staleNode, "â€”");
+    updateText(staleNode, "—");
     updateText(updatedNode, health.error.message || "Error");
     return;
   }
 
   container.classList.remove("text-danger");
   const snapshot = health.data;
-  updateText(sourceNode, snapshot?.source ?? "â€”");
+  updateText(sourceNode, snapshot?.source ?? "—");
   updateText(staleNode, formatBoolean(snapshot?.stale));
   updateText(updatedNode, formatAsOf(snapshot?.last_updated));
 }
@@ -252,13 +298,13 @@ function titleFor(key) {
 
 function updateText(node, value) {
   if (node) {
-    node.textContent = value ?? "â€”";
+    node.textContent = value ?? "—";
   }
 }
 
 function formatBoolean(value) {
   if (value === null || value === undefined) {
-    return "â€”";
+    return "—";
   }
   return value ? "true" : "false";
 }

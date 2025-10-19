@@ -1,4 +1,4 @@
-import { getJson } from "./api.js";
+import { getJson, postJson } from "./api.js";
 
 const subscribers = new Set();
 
@@ -15,6 +15,10 @@ const state = {
   health: {
     data: null,
     loading: true,
+    error: null,
+  },
+  refresh: {
+    loading: false,
     error: null,
   },
 };
@@ -69,6 +73,7 @@ export async function refreshData() {
       draft.health.data = health;
       draft.health.loading = false;
       draft.health.error = null;
+      draft.refresh.error = null;
     });
   } catch (error) {
     updateState((draft) => {
@@ -83,7 +88,40 @@ export async function refreshData() {
         message: error?.message || "Unable to load health status",
         status: error?.status,
       };
+      draft.refresh.error = {
+        message: error?.message || "Unable to refresh data",
+        status: error?.status,
+      };
     });
+  }
+}
+
+export async function triggerManualRefresh() {
+  if (state.refresh.loading) {
+    return { ok: false, message: "Refresh already in progress." };
+  }
+
+  updateState((draft) => {
+    draft.refresh.loading = true;
+    draft.refresh.error = null;
+  });
+
+  try {
+    const response = await postJson("/rates/refresh", {});
+    await refreshData();
+    updateState((draft) => {
+      draft.refresh.loading = false;
+    });
+    return { ok: true, message: response?.message || "Refresh triggered." };
+  } catch (error) {
+    updateState((draft) => {
+      draft.refresh.loading = false;
+      draft.refresh.error = {
+        message: error?.message || "Unable to refresh FX rates.",
+        status: error?.status,
+      };
+    });
+    return { ok: false, message: error?.message || "Unable to refresh FX rates." };
   }
 }
 
@@ -114,6 +152,7 @@ function updateState(mutator) {
   state.portfolioId = draft.portfolioId;
   state.metrics = { ...draft.metrics };
   state.health = { ...draft.health };
+  state.refresh = { ...draft.refresh };
   notify();
 }
 
@@ -137,6 +176,10 @@ function cloneState() {
       data: state.health.data ? { ...state.health.data } : null,
       loading: state.health.loading,
       error: state.health.error ? { ...state.health.error } : null,
+    },
+    refresh: {
+      loading: state.refresh.loading,
+      error: state.refresh.error ? { ...state.refresh.error } : null,
     },
   };
 }
