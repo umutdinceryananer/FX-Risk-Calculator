@@ -81,3 +81,20 @@ class PortfolioWhatIfResponseSchema(Schema):
     delta_value = fields.Decimal(required=True, as_string=True, data_key="delta_value")
     as_of = fields.DateTime(allow_none=True, data_key="as_of")
 
+
+class PortfolioValueSeriesQuerySchema(Schema):
+    base = fields.String(load_default=None, data_key="base")
+    days = fields.Integer(load_default=30, data_key="days", validate=validate.Range(min=1, max=365))
+
+
+class PortfolioValueSeriesPointSchema(Schema):
+    date = fields.Date(required=True, data_key="date")
+    value = fields.Decimal(required=True, as_string=True, data_key="value")
+
+
+class PortfolioValueSeriesResponseSchema(Schema):
+    portfolio_id = fields.Integer(required=True, data_key="portfolio_id")
+    portfolio_base = fields.String(required=True, data_key="portfolio_base")
+    view_base = fields.String(required=True, data_key="view_base")
+    series = fields.List(fields.Nested(PortfolioValueSeriesPointSchema), required=True, data_key="series")
+

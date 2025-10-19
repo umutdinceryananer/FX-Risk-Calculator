@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, date, timedelta
 from decimal import Decimal, localcontext
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from flask import current_app
 from sqlalchemy import desc
@@ -36,6 +36,20 @@ class PortfolioValueResult:
     priced: int
     unpriced: int
     as_of: Optional[datetime]
+
+
+@dataclass(frozen=True)
+class PortfolioValueSeriesPoint:
+    date: date
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class PortfolioValueSeriesResult:
+    portfolio_id: int
+    portfolio_base: str
+    view_base: str
+    series: List[PortfolioValueSeriesPoint]
 
 
 def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = None) -> PortfolioValueResult:
@@ -441,6 +455,83 @@ def calculate_daily_pnl(
     )
 
 
+def calculate_portfolio_value_series(
+    portfolio_id: int,
+    *,
+    view_base: Optional[str] = None,
+    days: int = 30,
+) -> PortfolioValueSeriesResult:
+    if days < 1 or days > 365:
+        raise ValidationError(
+            "'days' must be between 1 and 365.",
+            payload={"field": "days"},
+        )
+
+    session = get_session()
+    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    if portfolio is None:
+        raise APIError("Portfolio not found.", status_code=404)
+
+    positions = (
+        session.query(Position)
+        .filter(Position.portfolio_id == portfolio.id)
+        .all()
+    )
+
+    portfolio_base = normalize_currency(portfolio.base_currency_code)
+    resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
+
+    if not positions:
+        return PortfolioValueSeriesResult(
+            portfolio_id=portfolio.id,
+            portfolio_base=portfolio_base,
+            view_base=resolved_view_base,
+            series=[],
+        )
+
+    canonical_base = normalize_currency(current_app.config.get("FX_CANONICAL_BASE", "USD"))
+    timestamps = _recent_daily_timestamps(session, canonical_base, days)
+
+    if not timestamps:
+        return PortfolioValueSeriesResult(
+            portfolio_id=portfolio.id,
+            portfolio_base=portfolio_base,
+            view_base=resolved_view_base,
+            series=[],
+        )
+
+    series: List[PortfolioValueSeriesPoint] = []
+    for timestamp in timestamps:
+        rates_map = _rates_for_timestamp(session, canonical_base, timestamp)
+        if not rates_map:
+            continue
+
+        effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+        value, priced, _ = _portfolio_value_from_rates(
+            positions,
+            resolved_view_base,
+            effective_rates,
+        )
+
+        if priced == 0:
+            continue
+
+        point_date = _to_utc_datetime(timestamp).date()
+        series.append(
+            PortfolioValueSeriesPoint(
+                date=point_date,
+                value=value,
+            )
+        )
+
+    return PortfolioValueSeriesResult(
+        portfolio_id=portfolio.id,
+        portfolio_base=portfolio_base,
+        view_base=resolved_view_base,
+        series=series,
+    )
+
+
 def simulate_currency_shock(
     portfolio_id: int,
     *,
@@ -605,6 +696,43 @@ def _portfolio_value_from_rates(
             priced += 1
             total += converted
     return total, priced, unpriced
+
+
+def _recent_daily_timestamps(session, canonical_base: str, days: int) -> List[datetime]:
+    """Return the most recent FX timestamps for distinct calendar days."""
+
+    multiplier = max(3, min(10, days))
+    rows = (
+        session.query(FxRate.timestamp)
+        .filter(FxRate.base_currency_code == canonical_base)
+        .order_by(desc(FxRate.timestamp))
+        .limit(days * multiplier)
+        .all()
+    )
+
+    seen_dates: set[date] = set()
+    timestamps: List[datetime] = []
+
+    for (raw_timestamp,) in rows:
+        if raw_timestamp is None:
+            continue
+        normalized = _to_utc_datetime(raw_timestamp)
+        day_key = normalized.date()
+        if day_key in seen_dates:
+            continue
+        seen_dates.add(day_key)
+        timestamps.append(normalized)
+        if len(timestamps) >= days:
+            break
+
+    timestamps.sort()
+    return timestamps
+
+
+def _to_utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _apply_currency_shock(

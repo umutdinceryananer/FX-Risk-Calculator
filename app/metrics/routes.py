@@ -8,6 +8,7 @@ from app.services import (
     calculate_currency_exposure,
     calculate_daily_pnl,
     calculate_portfolio_value,
+    calculate_portfolio_value_series,
     simulate_currency_shock,
 )
 
@@ -22,6 +23,8 @@ from .schemas import (
     PortfolioWhatIfQuerySchema,
     PortfolioWhatIfRequestSchema,
     PortfolioWhatIfResponseSchema,
+    PortfolioValueSeriesQuerySchema,
+    PortfolioValueSeriesResponseSchema,
 )
 
 
@@ -127,4 +130,29 @@ class PortfolioWhatIf(MethodView):
             "new_value": result.new_value,
             "delta_value": result.delta_value,
             "as_of": result.as_of,
+        }
+
+
+@blp.route("/portfolio/<int:portfolio_id>/value/series")
+class PortfolioValueSeries(MethodView):
+    @blp.arguments(PortfolioValueSeriesQuerySchema, location="query")
+    @blp.response(200, PortfolioValueSeriesResponseSchema())
+    def get(self, query_params, portfolio_id: int):
+        result = calculate_portfolio_value_series(
+            portfolio_id,
+            view_base=query_params.get("base"),
+            days=query_params.get("days"),
+        )
+
+        return {
+            "portfolio_id": result.portfolio_id,
+            "portfolio_base": result.portfolio_base,
+            "view_base": result.view_base,
+            "series": [
+                {
+                    "date": point.date,
+                    "value": point.value,
+                }
+                for point in result.series
+            ],
         }

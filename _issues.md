@@ -844,7 +844,7 @@ Render a time-series line chart for last 30 days of portfolio value.
 
 # Issue 25: Exposure chart (Top-N + Other
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
