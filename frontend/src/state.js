@@ -161,7 +161,7 @@ function updateState(mutator) {
   state.metrics = { ...draft.metrics };
   state.health = { ...draft.health };
   state.refresh = { ...draft.refresh };
-  state.charts = { ...draft.charts };
+  state.charts = { exposure: cloneExposureChartData(draft.charts?.exposure) };
   notify();
 }
 
@@ -191,35 +191,25 @@ function cloneState() {
       error: state.refresh.error ? { ...state.refresh.error } : null,
     },
     charts: {
-      exposure: {
-        labels: [...state.charts.exposure.labels],
-        datasets: state.charts.exposure.datasets.map((dataset) => ({ ...dataset })),
-      },
+      exposure: cloneExposureChartData(state.charts.exposure),
     },
   };
 }
 
 function buildExposureChartData(exposure) {
-  const chart = {
-    labels: [],
-    datasets: [
-      {
-        label: "Base Equivalent",
-        data: [],
-        backgroundColor: [],
-      },
-    ],
-  };
+  const viewBase = (exposure?.view_base || state.viewBase || "USD").toUpperCase();
+  const exposures = Array.isArray(exposure?.exposures) ? exposure.exposures : [];
+  const palette = buildPalette(exposures.length);
 
-  if (!exposure || !Array.isArray(exposure.exposures) || exposure.exposures.length === 0) {
-    return chart;
-  }
+  const items = exposures.map((item, index) => ({
+    label: item.currency_code,
+    baseValue: toNumber(item.base_equivalent),
+    nativeValue: toNumber(item.net_native),
+    nativeCurrency: item.currency_code,
+    color: palette[index] || "#94a3b8",
+  }));
 
-  const exposures = exposure.exposures;
-  chart.labels = exposures.map((item) => item.currency_code);
-  chart.datasets[0].data = exposures.map((item) => Number(item.base_equivalent || 0));
-  chart.datasets[0].backgroundColor = buildPalette(exposures.length);
-  return chart;
+  return { items, viewBase };
 }
 
 function buildPalette(count) {
@@ -239,8 +229,24 @@ function buildPalette(count) {
 
   const colors = [];
   for (let i = 0; i < count; i += 1) {
-    const hue = Math.floor((360 / count) * i);
+    const hue = Math.floor((360 / Math.max(count, 1)) * i);
     colors.push(`hsl(${hue} 70% 55%)`);
   }
   return colors;
 }
+
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function cloneExposureChartData(chart) {
+  if (!chart) {
+    return { viewBase: (state.viewBase || "USD").toUpperCase(), items: [] };
+  }
+  return {
+    viewBase: chart.viewBase,
+    items: Array.isArray(chart.items) ? chart.items.map((item) => ({ ...item })) : [],
+  };
+}
+

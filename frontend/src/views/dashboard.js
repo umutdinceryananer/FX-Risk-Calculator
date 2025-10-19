@@ -1,8 +1,8 @@
 import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
 import { showToast } from "../ui/toast.js";
+import { renderExposureChart, destroyExposureChart, DEFAULT_EXPOSURE_TOP_N } from "../charts/exposure.js";
 
 const REFRESH_DEBOUNCE_MS = 600;
-let refreshDebounceTimer = null;
 
 export function renderDashboardView(root) {
   if (!root) {
@@ -19,7 +19,15 @@ export function renderDashboardView(root) {
   const sourceNode = root.querySelector("[data-health-source]");
   const staleNode = root.querySelector("[data-health-stale]");
   const updatedNode = root.querySelector("[data-health-updated]");
+  const exposureCanvas = root.querySelector("[data-exposure-chart]");
+  const exposureZeroState = root.querySelector("[data-exposure-zero-state]");
+  const exposureTopNLabel = root.querySelector("[data-exposure-topn]");
+  const exposureToggle = root.querySelector("[data-exposure-full-toggle]");
   const tooltipInstance = initStaleTooltip(root);
+
+  let refreshDebounceTimer = null;
+  let showFullExposure = false;
+  let lastExposureChartState = null;
 
   baseSelect.addEventListener("change", (event) => {
     setViewBase(event.target.value);
@@ -41,6 +49,19 @@ export function renderDashboardView(root) {
     });
   });
 
+  if (exposureToggle) {
+    exposureToggle.addEventListener("click", () => {
+      if (!lastExposureChartState || !Array.isArray(lastExposureChartState.items)) {
+        return;
+      }
+      if (lastExposureChartState.items.length <= DEFAULT_EXPOSURE_TOP_N) {
+        return;
+      }
+      showFullExposure = !showFullExposure;
+      updateExposureChart(lastExposureChartState);
+    });
+  }
+
   const unsubscribe = subscribe((state) => {
     if (baseSelect.value !== state.viewBase) {
       baseSelect.value = state.viewBase;
@@ -56,6 +77,9 @@ export function renderDashboardView(root) {
       updatedNode,
       health: state.health,
     });
+
+    lastExposureChartState = state.charts.exposure;
+    updateExposureChart(lastExposureChartState);
   });
 
   return () => {
@@ -65,7 +89,79 @@ export function renderDashboardView(root) {
     if (tooltipInstance) {
       tooltipInstance.dispose();
     }
+    destroyExposureChart();
   };
+
+  function updateExposureChart(chartState) {
+    if (!exposureCanvas) {
+      return;
+    }
+
+    const items = Array.isArray(chartState?.items) ? chartState.items : [];
+    const hasMagnitude = items.some((item) => Math.abs(item.baseValue) > 0);
+
+    if (!items.length || !hasMagnitude) {
+      destroyExposureChart();
+      setExposureZeroState(true);
+      if (exposureTopNLabel) {
+        exposureTopNLabel.textContent = "0";
+      }
+      if (exposureToggle) {
+        exposureToggle.disabled = true;
+        exposureToggle.setAttribute("aria-disabled", "true");
+        exposureToggle.textContent = "Show full list";
+        exposureToggle.setAttribute("aria-pressed", "false");
+      }
+      return;
+    }
+
+    setExposureZeroState(false);
+
+    const canExpand = items.length > DEFAULT_EXPOSURE_TOP_N;
+    if (!canExpand && showFullExposure) {
+      showFullExposure = false;
+    }
+
+    const maxTop = Math.min(DEFAULT_EXPOSURE_TOP_N, items.length);
+    const actualTopN = showFullExposure ? items.length : maxTop;
+
+    if (exposureTopNLabel) {
+      exposureTopNLabel.textContent = showFullExposure ? "All" : String(actualTopN);
+    }
+
+    if (exposureToggle) {
+      if (!canExpand) {
+        exposureToggle.disabled = true;
+        exposureToggle.setAttribute("aria-disabled", "true");
+      } else {
+        exposureToggle.disabled = false;
+        exposureToggle.setAttribute("aria-disabled", "false");
+      }
+      exposureToggle.textContent = showFullExposure ? `Show top ${maxTop}` : "Show full list";
+      exposureToggle.setAttribute("aria-pressed", showFullExposure ? "true" : "false");
+    }
+
+    const rendered = renderExposureChart(exposureCanvas, chartState, { topN: actualTopN });
+    if (!rendered) {
+      setExposureZeroState(true);
+      if (exposureTopNLabel) {
+        exposureTopNLabel.textContent = "0";
+      }
+    }
+  }
+
+  function setExposureZeroState(visible) {
+    if (!exposureZeroState) {
+      return;
+    }
+    if (visible) {
+      exposureZeroState.classList.remove("d-none");
+      exposureZeroState.classList.add("d-flex");
+    } else {
+      exposureZeroState.classList.add("d-none");
+      exposureZeroState.classList.remove("d-flex");
+    }
+  }
 }
 
 function template() {
@@ -123,12 +219,38 @@ function template() {
     <section class="mb-5">
       <div class="card border-0">
         <div class="card-body p-4">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="h5 mb-0">Value Timeline</h2>
-            <span class="badge text-bg-secondary">Chart placeholder</span>
-          </div>
-          <div class="placeholder-glow">
-            <div class="ratio ratio-16x9 bg-body-secondary rounded-4"></div>
+          <div class="row g-4">
+            <div class="col-12 col-xl-6">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <h2 class="h5 mb-0">Value Timeline</h2>
+                <span class="badge text-bg-secondary">Chart placeholder</span>
+              </div>
+              <div class="placeholder-glow">
+                <div class="ratio ratio-16x9 bg-body-secondary rounded-4"></div>
+              </div>
+            </div>
+            <div class="col-12 col-xl-6">
+              <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h2 class="h5 mb-0">Exposure by Currency</h2>
+                  <p class="text-muted small mb-0">Net exposure expressed in base equivalent.</p>
+                </div>
+                <div class="d-flex align-items-center gap-2 small text-muted">
+                  <span>Top <span data-exposure-topn>${DEFAULT_EXPOSURE_TOP_N}</span> currencies</span>
+                  <span class="text-body-secondary">|</span>
+                  <button class="btn btn-link btn-sm p-0" type="button" data-exposure-full-toggle>Show full list</button>
+                </div>
+              </div>
+              <div class="chart-area">
+                <div class="ratio ratio-1x1">
+                  <canvas data-exposure-chart></canvas>
+                </div>
+                <div class="chart-zero-state d-none flex-column align-items-center justify-content-center text-muted small" data-exposure-zero-state>
+                  <p class="fw-semibold mb-1">No exposure data yet</p>
+                  <p class="mb-0">Add positions to see currency exposure.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -242,14 +364,12 @@ function renderBanner(bannerNode, metrics, health, tooltipInstance) {
   bannerNode.classList.toggle("d-none", !isStale);
 
   const trigger = bannerNode.querySelector("[data-stale-tooltip]");
-  if (trigger) {
+  if (trigger && tooltipInstance) {
     trigger.setAttribute("tabindex", isStale ? "0" : "-1");
-    if (tooltipInstance) {
-      if (isStale) {
-        tooltipInstance.enable();
-      } else {
-        tooltipInstance.disable();
-      }
+    if (isStale) {
+      tooltipInstance.enable();
+    } else {
+      tooltipInstance.disable();
     }
   }
 }
@@ -370,4 +490,3 @@ function formatAsOf(iso) {
     return iso;
   }
 }
-

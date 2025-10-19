@@ -83,8 +83,24 @@ body {
   letter-spacing: 0.08em;
 }
 
+.chart-area {
+  position: relative;
+}
+
+.chart-area canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-zero-state {
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  background: rgba(248, 250, 252, 0.92);
+}
 @media (max-width: 767px) {
   .view-root {
     min-height: calc(100vh - 112px);
   }
 }
+
