@@ -1,4 +1,4 @@
-import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
+import { subscribe, setViewBase, triggerManualRefresh, TIMELINE_DAYS } from "../state.js";
 import { showToast } from "../ui/toast.js";
 import {
   prepareExposureDataset,
@@ -6,6 +6,7 @@ import {
   destroyExposureChart,
   DEFAULT_EXPOSURE_TOP_N,
 } from "../charts/exposure.js";
+import { renderTimelineChart, destroyTimelineChart } from "../charts/timeline.js";
 
 const REFRESH_DEBOUNCE_MS = 600;
 
@@ -29,11 +30,15 @@ export function renderDashboardView(root) {
   const exposureTopNLabel = root.querySelector("[data-exposure-topn]");
   const exposureToggle = root.querySelector("[data-exposure-full-toggle]");
   const exposureList = root.querySelector("[data-exposure-list]");
+  const timelineCanvas = root.querySelector("[data-timeline-chart]");
+  const timelineZeroState = root.querySelector("[data-timeline-zero-state]");
+  const timelineSummary = root.querySelector("[data-timeline-summary]");
   const tooltipInstance = initStaleTooltip(root);
 
   let refreshDebounceTimer = null;
   let showFullExposure = false;
   let lastExposureChartState = null;
+  let lastTimelineChartState = null;
 
   baseSelect.addEventListener("change", (event) => {
     setViewBase(event.target.value);
@@ -86,6 +91,9 @@ export function renderDashboardView(root) {
 
     lastExposureChartState = state.charts.exposure;
     updateExposureChart(lastExposureChartState);
+
+    lastTimelineChartState = state.charts.timeline;
+    updateTimelineChart(lastTimelineChartState);
   });
 
   return () => {
@@ -96,6 +104,7 @@ export function renderDashboardView(root) {
       tooltipInstance.dispose();
     }
     destroyExposureChart();
+    destroyTimelineChart();
   };
 
   function updateExposureChart(chartState) {
@@ -158,6 +167,7 @@ export function renderDashboardView(root) {
       exposureZeroState.classList.add("d-flex");
       exposureZeroState.setAttribute("aria-hidden", "false");
       if (exposureList) {
+        exposureList.classList.add("d-none");
         exposureList.setAttribute("aria-hidden", "true");
       }
     } else {
@@ -165,6 +175,7 @@ export function renderDashboardView(root) {
       exposureZeroState.classList.remove("d-flex");
       exposureZeroState.setAttribute("aria-hidden", "true");
       if (exposureList) {
+        exposureList.classList.remove("d-none");
         exposureList.setAttribute("aria-hidden", "false");
       }
     }
@@ -177,12 +188,14 @@ export function renderDashboardView(root) {
 
     if (!meta || !Array.isArray(meta.segments) || meta.segments.length === 0) {
       container.innerHTML = "";
-      container.classList.add("text-muted");
-       container.classList.add("d-none");
+      container.classList.add("d-none");
+      container.setAttribute("aria-hidden", "true");
       return;
     }
 
     container.classList.remove("d-none");
+    container.setAttribute("aria-hidden", "false");
+
     const items = meta.segments.map((segment) => {
       const toneClass =
         segment.baseValue < 0 ? "text-danger" : segment.baseValue > 0 ? "text-success" : "text-body";
@@ -213,6 +226,74 @@ export function renderDashboardView(root) {
     });
 
     container.innerHTML = items.join("");
+  }
+
+  function updateTimelineChart(chartState) {
+    if (!timelineCanvas) {
+      return;
+    }
+
+    const hasData =
+      chartState &&
+      Array.isArray(chartState.labels) &&
+      chartState.labels.length > 0 &&
+      Array.isArray(chartState.data) &&
+      chartState.data.some((value) => value !== null);
+
+    if (!hasData) {
+      destroyTimelineChart();
+      setTimelineZeroState(true);
+      renderTimelineSummary(timelineSummary, null);
+      return;
+    }
+
+    setTimelineZeroState(false);
+    renderTimelineSummary(timelineSummary, chartState);
+    renderTimelineChart(timelineCanvas, chartState);
+  }
+
+  function setTimelineZeroState(visible) {
+    if (!timelineZeroState) {
+      return;
+    }
+    if (visible) {
+      timelineZeroState.classList.remove("d-none");
+      timelineZeroState.classList.add("d-flex");
+      timelineZeroState.setAttribute("aria-hidden", "false");
+    } else {
+      timelineZeroState.classList.add("d-none");
+      timelineZeroState.classList.remove("d-flex");
+      timelineZeroState.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  function renderTimelineSummary(container, chartState) {
+    if (!container) {
+      return;
+    }
+
+    if (!chartState || !Array.isArray(chartState.points) || chartState.points.length === 0) {
+      container.textContent = `Last ${TIMELINE_DAYS} days`;
+      return;
+    }
+
+    const firstPoint = chartState.points[0];
+    const latestPoint = chartState.points[chartState.points.length - 1];
+    const rangeText = `${formatShortDateLabel(firstPoint.date)} -> ${formatShortDateLabel(latestPoint.date)}`;
+    const latestValue = formatCurrency(latestPoint.value, chartState.viewBase);
+    container.textContent = `${rangeText} | Latest ${latestValue}`;
+  }
+
+  function formatShortDateLabel(iso) {
+    if (!iso) {
+      return "--";
+    }
+    try {
+      const date = new Date(`${iso}T00:00:00Z`);
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    } catch {
+      return iso;
+    }
   }
 }
 
@@ -273,12 +354,24 @@ function template() {
         <div class="card-body p-4">
           <div class="row g-4">
             <div class="col-12 col-xl-6">
-              <div class="d-flex align-items-center justify-content-between mb-3">
-                <h2 class="h5 mb-0">Value Timeline</h2>
-                <span class="badge text-bg-secondary">Chart placeholder</span>
+              <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h2 class="h5 mb-0">Value Timeline</h2>
+                  <p class="text-muted small mb-0" data-timeline-summary>Last ${TIMELINE_DAYS} days</p>
+                </div>
               </div>
-              <div class="placeholder-glow">
-                <div class="ratio ratio-16x9 bg-body-secondary rounded-4"></div>
+              <div class="chart-area">
+                <div class="ratio ratio-16x9">
+                  <canvas data-timeline-chart></canvas>
+                </div>
+                <div
+                  class="chart-zero-state d-none flex-column align-items-center justify-content-center text-muted small"
+                  data-timeline-zero-state
+                  aria-hidden="true"
+                >
+                  <p class="fw-semibold mb-1">No timeline data yet</p>
+                  <p class="mb-0">Collect rate snapshots to visualize trends.</p>
+                </div>
               </div>
             </div>
             <div class="col-12 col-xl-6">
@@ -306,7 +399,7 @@ function template() {
                   <p class="mb-0">Add positions to see currency exposure.</p>
                 </div>
               </div>
-              <ul class="exposure-list text-muted small" data-exposure-list></ul>
+              <ul class="exposure-list text-muted small d-none" data-exposure-list aria-hidden="true"></ul>
             </div>
           </div>
         </div>

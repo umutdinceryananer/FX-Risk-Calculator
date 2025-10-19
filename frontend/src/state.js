@@ -1,5 +1,7 @@
 import { getJson, postJson } from "./api.js";
 
+export const TIMELINE_DAYS = 30;
+
 const subscribers = new Set();
 
 const state = {
@@ -25,6 +27,11 @@ const state = {
     exposure: {
       labels: [],
       datasets: [],
+    },
+    timeline: {
+      labels: [],
+      data: [],
+      viewBase: "USD",
     },
   },
 };
@@ -62,11 +69,13 @@ export async function refreshData() {
 
   try {
     const query = new URLSearchParams({ base: state.viewBase });
-    const [value, pnl, exposure, health] = await Promise.all([
+    const timelineQuery = new URLSearchParams({ base: state.viewBase, days: String(TIMELINE_DAYS) });
+    const [value, pnl, exposure, health, timeline] = await Promise.all([
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/value?${query}`),
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/pnl/daily?${query}`),
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/exposure?${query}`),
       getJson("/health/rates"),
+      getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/value/series?${timelineQuery}`),
     ]);
 
     updateState((draft) => {
@@ -82,6 +91,7 @@ export async function refreshData() {
       draft.refresh.error = null;
 
       draft.charts.exposure = buildExposureChartData(exposure);
+      draft.charts.timeline = buildTimelineChartData(timeline, TIMELINE_DAYS);
     });
   } catch (error) {
     updateState((draft) => {
@@ -161,7 +171,10 @@ function updateState(mutator) {
   state.metrics = { ...draft.metrics };
   state.health = { ...draft.health };
   state.refresh = { ...draft.refresh };
-  state.charts = { exposure: cloneExposureChartData(draft.charts?.exposure) };
+  state.charts = {
+    exposure: cloneExposureChartData(draft.charts?.exposure),
+    timeline: cloneTimelineChartData(draft.charts?.timeline),
+  };
   notify();
 }
 
@@ -192,6 +205,7 @@ function cloneState() {
     },
     charts: {
       exposure: cloneExposureChartData(state.charts.exposure),
+      timeline: cloneTimelineChartData(state.charts.timeline),
     },
   };
 }
@@ -248,5 +262,91 @@ function cloneExposureChartData(chart) {
     viewBase: chart.viewBase,
     items: Array.isArray(chart.items) ? chart.items.map((item) => ({ ...item })) : [],
   };
+}
+
+function buildTimelineChartData(seriesResponse, days = TIMELINE_DAYS) {
+  const viewBase = (seriesResponse?.view_base || state.viewBase || "USD").toUpperCase();
+  const rawPoints = Array.isArray(seriesResponse?.series) ? seriesResponse.series : [];
+
+  if (!rawPoints.length || days <= 0) {
+    return { viewBase, labels: [], data: [], points: [] };
+  }
+
+  const parsedPoints = rawPoints
+    .map((point) => {
+      const iso = normalizeDateString(point.date);
+      if (!iso) {
+        return null;
+      }
+      return {
+        date: iso,
+        value: toNumber(point.value),
+        dateObj: new Date(`${iso}T00:00:00Z`),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.dateObj - b.dateObj);
+
+  if (!parsedPoints.length) {
+    return { viewBase, labels: [], data: [], points: [] };
+  }
+
+  const endDate = parsedPoints[parsedPoints.length - 1].dateObj;
+  const dayCount = Math.min(Math.max(days, parsedPoints.length), 365);
+  const startDate = new Date(endDate);
+  startDate.setUTCDate(endDate.getUTCDate() - (dayCount - 1));
+
+  const lookup = new Map(parsedPoints.map((point) => [point.date, point.value]));
+
+  const labels = [];
+  const data = [];
+  const points = [];
+
+  for (let i = 0; i < dayCount; i += 1) {
+    const current = new Date(startDate);
+    current.setUTCDate(startDate.getUTCDate() + i);
+    const iso = current.toISOString().slice(0, 10);
+    labels.push(iso);
+
+    if (lookup.has(iso)) {
+      const value = lookup.get(iso);
+      data.push(value);
+      points.push({ date: iso, value });
+    } else {
+      data.push(null);
+    }
+  }
+
+  return { viewBase, labels, data, points };
+}
+
+function cloneTimelineChartData(chart) {
+  if (!chart) {
+    return { viewBase: (state.viewBase || "USD").toUpperCase(), labels: [], data: [], points: [] };
+  }
+  return {
+    viewBase: chart.viewBase,
+    labels: Array.isArray(chart.labels) ? [...chart.labels] : [],
+    data: Array.isArray(chart.data) ? [...chart.data] : [],
+    points: Array.isArray(chart.points) ? chart.points.map((point) => ({ ...point })) : [],
+  };
+}
+
+function normalizeDateString(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
 }
 
