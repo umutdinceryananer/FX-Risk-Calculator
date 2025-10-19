@@ -1,6 +1,7 @@
 import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
 import { showToast } from "../ui/toast.js";
 
+const REFRESH_DEBOUNCE_MS = 600;
 let refreshDebounceTimer = null;
 
 export function renderDashboardView(root) {
@@ -18,6 +19,7 @@ export function renderDashboardView(root) {
   const sourceNode = root.querySelector("[data-health-source]");
   const staleNode = root.querySelector("[data-health-stale]");
   const updatedNode = root.querySelector("[data-health-updated]");
+  const tooltipInstance = initStaleTooltip(root);
 
   baseSelect.addEventListener("change", (event) => {
     setViewBase(event.target.value);
@@ -29,7 +31,7 @@ export function renderDashboardView(root) {
     }
     refreshDebounceTimer = setTimeout(() => {
       refreshDebounceTimer = null;
-    }, 600);
+    }, REFRESH_DEBOUNCE_MS);
 
     const result = await triggerManualRefresh();
     showToast({
@@ -46,7 +48,7 @@ export function renderDashboardView(root) {
 
     renderRefreshButton(refreshButton, state.refresh);
     renderMetrics(metricCards, state.metrics);
-    renderBanner(banner, state.metrics, state.health);
+    renderBanner(banner, state.metrics, state.health, tooltipInstance);
     renderHealthSummary({
       container: healthSummary,
       sourceNode,
@@ -56,7 +58,14 @@ export function renderDashboardView(root) {
     });
   });
 
-  return () => unsubscribe();
+  return () => {
+    if (typeof unsubscribe === "function") {
+      unsubscribe();
+    }
+    if (tooltipInstance) {
+      tooltipInstance.dispose();
+    }
+  };
 }
 
 function template() {
@@ -69,9 +78,9 @@ function template() {
         </div>
         <div class="d-flex flex-column align-items-md-end gap-2">
           <div class="d-flex align-items-center gap-3 justify-content-end flex-wrap text-muted small" data-health-summary>
-            <span>Source: <span class="fw-semibold text-body" data-health-source>—</span></span>
-            <span>Stale: <span class="fw-semibold text-body" data-health-stale>—</span></span>
-            <span>Last updated: <span class="fw-semibold text-body" data-health-updated>—</span></span>
+            <span>Source: <span class="fw-semibold text-body" data-health-source>--</span></span>
+            <span>Stale: <span class="fw-semibold text-body" data-health-stale>--</span></span>
+            <span>Last updated: <span class="fw-semibold text-body" data-health-updated>--</span></span>
           </div>
           <div class="d-flex align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
@@ -96,6 +105,7 @@ function template() {
         <div class="d-flex align-items-center gap-2">
           <i class="bi bi-exclamation-triangle-fill"></i>
           <span>Provider currently stale. Using last available snapshot.</span>
+          <i class="bi bi-info-circle" data-stale-tooltip tabindex="-1" data-bs-toggle="tooltip" title="Provider down or weekend/holiday"></i>
         </div>
       </div>
 
@@ -129,7 +139,7 @@ function template() {
 function renderMetricSkeleton({ key, title }) {
   return `
     <div class="col-12 col-md-6 col-xl-4">
-      <div class="card h-100" data-metric-card="${key}">
+      <div class="card h-100 kpi-card" data-metric-card="${key}">
         <div class="card-body p-4">
           <p class="text-muted text-uppercase fw-semibold small mb-2">${title}</p>
           <div class="placeholder-glow">
@@ -185,9 +195,9 @@ function metricMarkup(key, payload) {
     case "value": {
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2">Portfolio Value</p>
-        <h3 class="display-6 mb-3">${formatCurrency(payload.value, payload.view_base)}</h3>
-        <p class="text-muted small mb-2">Priced: ${payload.priced} / Unpriced: ${payload.unpriced}</p>
-        <p class="text-muted small mb-0">As of ${formatAsOf(payload.as_of)}</p>
+        <div class="metric-value display-6 mb-2">${formatCurrency(payload.value, payload.view_base)}</div>
+        <p class="text-muted metric-footnote mb-1">Priced: ${payload.priced} / Unpriced: ${payload.unpriced}</p>
+        <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
       `;
     }
     case "pnl": {
@@ -195,11 +205,11 @@ function metricMarkup(key, payload) {
       const toneClass = pnlNumber < 0 ? "text-danger" : pnlNumber > 0 ? "text-success" : "text-body";
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2">Daily P&L</p>
-        <h3 class="display-6 mb-0 ${toneClass}">
+        <div class="metric-value display-6 mb-1 ${toneClass}">
           ${formatCurrency(payload.pnl, payload.view_base)}
-        </h3>
-        <p class="text-muted small mb-1">Prev value: ${formatCurrency(payload.value_previous ?? "0", payload.view_base)}</p>
-        <p class="text-muted small mb-0">As of ${formatAsOf(payload.as_of)}</p>
+        </div>
+        <p class="text-muted metric-footnote mb-1">Prev value: ${formatCurrency(payload.value_previous ?? "0", payload.view_base)}</p>
+        <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
       `;
     }
     case "exposure": {
@@ -209,10 +219,10 @@ function metricMarkup(key, payload) {
       const uniqueCurrencies = Array.isArray(payload.exposures) ? payload.exposures.length : 0;
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2"># Positions</p>
-        <h3 class="display-6 mb-3">${totalPositions}</h3>
-        <p class="text-muted small mb-1">Priced positions: ${priced}</p>
-        <p class="text-muted small mb-1">Awaiting pricing: ${unpriced}</p>
-        <p class="text-muted small mb-0">Tracked currencies: ${uniqueCurrencies}</p>
+        <div class="metric-value display-6 mb-2">${totalPositions}</div>
+        <p class="text-muted metric-footnote mb-1">Priced positions: ${priced}</p>
+        <p class="text-muted metric-footnote mb-1">Awaiting pricing: ${unpriced}</p>
+        <p class="text-muted metric-footnote mb-0">Tracked currencies: ${uniqueCurrencies}</p>
       `;
     }
     default:
@@ -220,7 +230,7 @@ function metricMarkup(key, payload) {
   }
 }
 
-function renderBanner(bannerNode, metrics, health) {
+function renderBanner(bannerNode, metrics, health, tooltipInstance) {
   if (!bannerNode) {
     return;
   }
@@ -230,6 +240,18 @@ function renderBanner(bannerNode, metrics, health) {
     Boolean(metrics.value && metrics.value.priced === 0 && !metrics.loading && !metrics.error);
 
   bannerNode.classList.toggle("d-none", !isStale);
+
+  const trigger = bannerNode.querySelector("[data-stale-tooltip]");
+  if (trigger) {
+    trigger.setAttribute("tabindex", isStale ? "0" : "-1");
+    if (tooltipInstance) {
+      if (isStale) {
+        tooltipInstance.enable();
+      } else {
+        tooltipInstance.disable();
+      }
+    }
+  }
 }
 
 function renderRefreshButton(button, refreshState) {
@@ -240,10 +262,9 @@ function renderRefreshButton(button, refreshState) {
   const spinner = button.querySelector("[data-refresh-spinner]");
   const icon = button.querySelector("[data-refresh-icon]");
   const label = button.querySelector("[data-refresh-label]");
-
   const loading = Boolean(refreshState?.loading);
-  button.disabled = loading;
 
+  button.disabled = loading;
   if (spinner) {
     spinner.classList.toggle("d-none", !loading);
   }
@@ -262,6 +283,7 @@ function renderHealthSummary({ container, sourceNode, staleNode, updatedNode, he
 
   if (health.loading) {
     container.classList.add("text-muted");
+    container.classList.remove("text-danger");
     updateText(sourceNode, "Loading...");
     updateText(staleNode, "Loading...");
     updateText(updatedNode, "Loading...");
@@ -269,16 +291,18 @@ function renderHealthSummary({ container, sourceNode, staleNode, updatedNode, he
   }
 
   if (health.error) {
+    container.classList.remove("text-muted");
     container.classList.add("text-danger");
     updateText(sourceNode, "Unavailable");
-    updateText(staleNode, "—");
+    updateText(staleNode, "--");
     updateText(updatedNode, health.error.message || "Error");
     return;
   }
 
+  container.classList.remove("text-muted");
   container.classList.remove("text-danger");
   const snapshot = health.data;
-  updateText(sourceNode, snapshot?.source ?? "—");
+  updateText(sourceNode, snapshot?.source ?? "--");
   updateText(staleNode, formatBoolean(snapshot?.stale));
   updateText(updatedNode, formatAsOf(snapshot?.last_updated));
 }
@@ -296,15 +320,29 @@ function titleFor(key) {
   }
 }
 
+function initStaleTooltip(root) {
+  const trigger = root.querySelector("[data-stale-tooltip]");
+  const bootstrap = window.bootstrap;
+  if (!trigger || !bootstrap?.Tooltip) {
+    return null;
+  }
+
+  return bootstrap.Tooltip.getOrCreateInstance(trigger, {
+    title: trigger.getAttribute("title") || "Provider down or weekend/holiday",
+    placement: "top",
+    trigger: "hover focus",
+  });
+}
+
 function updateText(node, value) {
   if (node) {
-    node.textContent = value ?? "—";
+    node.textContent = value ?? "--";
   }
 }
 
 function formatBoolean(value) {
   if (value === null || value === undefined) {
-    return "—";
+    return "--";
   }
   return value ? "true" : "false";
 }
