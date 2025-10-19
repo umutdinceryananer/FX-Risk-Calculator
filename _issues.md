@@ -930,7 +930,7 @@ Show KPI cards (Value, Daily P&L, #Positions) and allow manual refresh; display 
 
 # Issue 23: Frontend base layout
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

@@ -18,12 +18,12 @@ def serve_frontend(resource_path: str):
 
     requested_path = (FRONTEND_ROOT / resource_path).resolve()
 
-    # Prevent directory traversal outside the frontend root
-    if not str(requested_path).startswith(str(FRONTEND_ROOT)):
+    try:
+        relative_path = requested_path.relative_to(FRONTEND_ROOT)
+    except ValueError:
         abort(404)
 
     if not requested_path.exists() or requested_path.is_dir():
         return send_from_directory(FRONTEND_ROOT, "index.html")
 
-    relative_path = requested_path.relative_to(FRONTEND_ROOT)
-    return send_from_directory(FRONTEND_ROOT, str(relative_path))
+    return send_from_directory(FRONTEND_ROOT, relative_path.as_posix())

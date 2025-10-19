@@ -12,6 +12,11 @@ const state = {
     loading: true,
     error: null,
   },
+  health: {
+    data: null,
+    loading: true,
+    error: null,
+  },
 };
 
 export function initState({ defaultPortfolioId, defaultViewBase } = {}) {
@@ -33,34 +38,49 @@ export function subscribe(listener) {
   return () => subscribers.delete(listener);
 }
 
-export async function refreshMetrics() {
+export async function refreshData() {
   if (!state.portfolioId) {
     return;
   }
+
   updateState((draft) => {
     draft.metrics.loading = true;
     draft.metrics.error = null;
+    draft.health.loading = true;
+    draft.health.error = null;
   });
 
   try {
     const query = new URLSearchParams({ base: state.viewBase });
-    const [value, pnl, exposure] = await Promise.all([
+    const [value, pnl, exposure, health] = await Promise.all([
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/value?${query}`),
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/pnl/daily?${query}`),
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/exposure?${query}`),
+      getJson("/health/rates"),
     ]);
+
     updateState((draft) => {
       draft.metrics.value = value;
       draft.metrics.pnl = pnl;
       draft.metrics.exposure = exposure;
       draft.metrics.loading = false;
       draft.metrics.error = null;
+
+      draft.health.data = health;
+      draft.health.loading = false;
+      draft.health.error = null;
     });
   } catch (error) {
     updateState((draft) => {
       draft.metrics.loading = false;
       draft.metrics.error = {
         message: error?.message || "Unable to load metrics",
+        status: error?.status,
+      };
+
+      draft.health.loading = false;
+      draft.health.error = {
+        message: error?.message || "Unable to load health status",
         status: error?.status,
       };
     });
@@ -74,7 +94,7 @@ export function setViewBase(newBase) {
   updateState((draft) => {
     draft.viewBase = newBase;
   });
-  refreshMetrics();
+  refreshData();
 }
 
 export function setPortfolioId(id) {
@@ -84,7 +104,7 @@ export function setPortfolioId(id) {
   updateState((draft) => {
     draft.portfolioId = id;
   });
-  refreshMetrics();
+  refreshData();
 }
 
 function updateState(mutator) {
@@ -93,6 +113,7 @@ function updateState(mutator) {
   state.viewBase = draft.viewBase;
   state.portfolioId = draft.portfolioId;
   state.metrics = { ...draft.metrics };
+  state.health = { ...draft.health };
   notify();
 }
 
@@ -112,6 +133,10 @@ function cloneState() {
       loading: state.metrics.loading,
       error: state.metrics.error ? { ...state.metrics.error } : null,
     },
+    health: {
+      data: state.health.data ? { ...state.health.data } : null,
+      loading: state.health.loading,
+      error: state.health.error ? { ...state.health.error } : null,
+    },
   };
 }
-
