@@ -47,6 +47,10 @@ function buildDataset(chartState) {
   return {
     label: `Portfolio Value (${chartState.viewBase})`,
     data: chartState.data,
+    segment: {
+      borderColor: (ctx) => (ctx.p0.parsed.y === null || ctx.p1.parsed.y === null ? "rgba(37, 99, 235, 0.15)" : "#2563eb"),
+      borderDash: (ctx) => (ctx.p0.parsed.y === null || ctx.p1.parsed.y === null ? [6, 6] : undefined),
+    },
     borderColor: "#2563eb",
     backgroundColor: "rgba(37, 99, 235, 0.18)",
     tension: 0.25,
