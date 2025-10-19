@@ -1,6 +1,11 @@
 import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
 import { showToast } from "../ui/toast.js";
-import { renderExposureChart, destroyExposureChart, DEFAULT_EXPOSURE_TOP_N } from "../charts/exposure.js";
+import {
+  prepareExposureDataset,
+  renderPreparedExposureChart,
+  destroyExposureChart,
+  DEFAULT_EXPOSURE_TOP_N,
+} from "../charts/exposure.js";
 
 const REFRESH_DEBOUNCE_MS = 600;
 
@@ -23,6 +28,7 @@ export function renderDashboardView(root) {
   const exposureZeroState = root.querySelector("[data-exposure-zero-state]");
   const exposureTopNLabel = root.querySelector("[data-exposure-topn]");
   const exposureToggle = root.querySelector("[data-exposure-full-toggle]");
+  const exposureList = root.querySelector("[data-exposure-list]");
   const tooltipInstance = initStaleTooltip(root);
 
   let refreshDebounceTimer = null;
@@ -97,12 +103,20 @@ export function renderDashboardView(root) {
       return;
     }
 
-    const items = Array.isArray(chartState?.items) ? chartState.items : [];
-    const hasMagnitude = items.some((item) => Math.abs(item.baseValue) > 0);
+    const totalItems = Array.isArray(chartState?.items) ? chartState.items.length : 0;
+    const canExpand = totalItems > DEFAULT_EXPOSURE_TOP_N;
+    if (!canExpand && showFullExposure) {
+      showFullExposure = false;
+    }
 
-    if (!items.length || !hasMagnitude) {
+    const desiredTop = showFullExposure ? totalItems || DEFAULT_EXPOSURE_TOP_N : DEFAULT_EXPOSURE_TOP_N;
+    const prepared = prepareExposureDataset(chartState, desiredTop);
+    const hasData = prepared.data.labels.length > 0;
+
+    if (!hasData) {
       destroyExposureChart();
       setExposureZeroState(true);
+      renderExposureList(exposureList, null);
       if (exposureTopNLabel) {
         exposureTopNLabel.textContent = "0";
       }
@@ -117,37 +131,22 @@ export function renderDashboardView(root) {
 
     setExposureZeroState(false);
 
-    const canExpand = items.length > DEFAULT_EXPOSURE_TOP_N;
-    if (!canExpand && showFullExposure) {
-      showFullExposure = false;
-    }
-
-    const maxTop = Math.min(DEFAULT_EXPOSURE_TOP_N, items.length);
-    const actualTopN = showFullExposure ? items.length : maxTop;
-
     if (exposureTopNLabel) {
-      exposureTopNLabel.textContent = showFullExposure ? "All" : String(actualTopN);
+      const segmentCount = prepared.meta.segments.length;
+      const topCount = showFullExposure ? segmentCount : Math.min(DEFAULT_EXPOSURE_TOP_N, segmentCount);
+      exposureTopNLabel.textContent = showFullExposure ? "All" : String(topCount);
     }
 
     if (exposureToggle) {
-      if (!canExpand) {
-        exposureToggle.disabled = true;
-        exposureToggle.setAttribute("aria-disabled", "true");
-      } else {
-        exposureToggle.disabled = false;
-        exposureToggle.setAttribute("aria-disabled", "false");
-      }
-      exposureToggle.textContent = showFullExposure ? `Show top ${maxTop}` : "Show full list";
+      exposureToggle.disabled = !canExpand;
+      exposureToggle.setAttribute("aria-disabled", canExpand ? "false" : "true");
+      const defaultLabel = `Show top ${Math.min(DEFAULT_EXPOSURE_TOP_N, prepared.meta.segments.length)}`;
+      exposureToggle.textContent = showFullExposure ? defaultLabel : "Show full list";
       exposureToggle.setAttribute("aria-pressed", showFullExposure ? "true" : "false");
     }
 
-    const rendered = renderExposureChart(exposureCanvas, chartState, { topN: actualTopN });
-    if (!rendered) {
-      setExposureZeroState(true);
-      if (exposureTopNLabel) {
-        exposureTopNLabel.textContent = "0";
-      }
-    }
+    renderPreparedExposureChart(exposureCanvas, prepared);
+    renderExposureList(exposureList, prepared.meta);
   }
 
   function setExposureZeroState(visible) {
@@ -157,10 +156,63 @@ export function renderDashboardView(root) {
     if (visible) {
       exposureZeroState.classList.remove("d-none");
       exposureZeroState.classList.add("d-flex");
+      exposureZeroState.setAttribute("aria-hidden", "false");
+      if (exposureList) {
+        exposureList.setAttribute("aria-hidden", "true");
+      }
     } else {
       exposureZeroState.classList.add("d-none");
       exposureZeroState.classList.remove("d-flex");
+      exposureZeroState.setAttribute("aria-hidden", "true");
+      if (exposureList) {
+        exposureList.setAttribute("aria-hidden", "false");
+      }
     }
+  }
+
+  function renderExposureList(container, meta) {
+    if (!container) {
+      return;
+    }
+
+    if (!meta || !Array.isArray(meta.segments) || meta.segments.length === 0) {
+      container.innerHTML = "";
+      container.classList.add("text-muted");
+       container.classList.add("d-none");
+      return;
+    }
+
+    container.classList.remove("d-none");
+    const items = meta.segments.map((segment) => {
+      const toneClass =
+        segment.baseValue < 0 ? "text-danger" : segment.baseValue > 0 ? "text-success" : "text-body";
+      const baseLine = `<strong class="${toneClass}">${formatCurrency(segment.baseValue, meta.viewBase)}</strong>`;
+
+      const nativeLine =
+        segment.nativeCurrency != null && segment.nativeCurrency !== ""
+          ? `<small>Native (${segment.nativeCurrency}): ${formatCurrency(segment.nativeValue, segment.nativeCurrency)}</small>`
+          : "";
+
+      const breakdownLine =
+        Array.isArray(segment.constituents) && segment.constituents.length > 0
+          ? `<small>Includes ${segment.constituents.length} ${
+              segment.constituents.length === 1 ? "currency" : "currencies"
+            }</small>`
+          : "";
+
+      return `
+        <li>
+          <span class="exposure-label">${segment.label}</span>
+          <span class="exposure-values">
+            ${baseLine}
+            ${nativeLine}
+            ${breakdownLine}
+          </span>
+        </li>
+      `;
+    });
+
+    container.innerHTML = items.join("");
   }
 }
 
@@ -245,11 +297,16 @@ function template() {
                 <div class="ratio ratio-1x1">
                   <canvas data-exposure-chart></canvas>
                 </div>
-                <div class="chart-zero-state d-none flex-column align-items-center justify-content-center text-muted small" data-exposure-zero-state>
+                <div
+                  class="chart-zero-state d-none flex-column align-items-center justify-content-center text-muted small"
+                  data-exposure-zero-state
+                  aria-hidden="true"
+                >
                   <p class="fw-semibold mb-1">No exposure data yet</p>
                   <p class="mb-0">Add positions to see currency exposure.</p>
                 </div>
               </div>
+              <ul class="exposure-list text-muted small" data-exposure-list></ul>
             </div>
           </div>
         </div>

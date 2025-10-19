@@ -3,80 +3,32 @@ export const DEFAULT_EXPOSURE_TOP_N = 5;
 let chartInstance = null;
 let currentCanvas = null;
 
-export function renderExposureChart(canvas, chartState, { topN = DEFAULT_EXPOSURE_TOP_N } = {}) {
-  if (!canvas || !window.Chart) {
-    return null;
-  }
-
-  if (chartInstance && currentCanvas && currentCanvas !== canvas) {
-    destroyExposureChart();
-  }
-
-  const processed = processChartData(chartState, topN);
-  if (processed.data.labels.length === 0) {
-    destroyExposureChart();
-    return null;
-  }
-
-  if (!chartInstance) {
-    chartInstance = new window.Chart(canvas.getContext("2d"), {
-      type: "doughnut",
-      data: processed.data,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              usePointStyle: true,
-            },
-          },
-          tooltip: {
-            callbacks: buildTooltipCallbacks(processed.meta),
-          },
-        },
-      },
-    });
-    currentCanvas = canvas;
-  } else {
-    chartInstance.data = processed.data;
-    chartInstance.options.plugins.tooltip.callbacks = buildTooltipCallbacks(processed.meta);
-    chartInstance.update();
-  }
-
-  return chartInstance;
-}
-
-export function destroyExposureChart() {
-  if (chartInstance) {
-    chartInstance.destroy();
-    chartInstance = null;
-    currentCanvas = null;
-  }
-}
-
-function processChartData(chartState, topN) {
+export function prepareExposureDataset(chartState, topN = DEFAULT_EXPOSURE_TOP_N) {
   const viewBase = (chartState?.viewBase || "USD").toUpperCase();
-  const items = Array.isArray(chartState?.items)
-    ? chartState.items.map((item) => ({
-        label: item.label,
-        baseValue: Number(item.baseValue) || 0,
-        nativeValue: Number(item.nativeValue) || 0,
-        nativeCurrency: item.nativeCurrency,
-        color: item.color || "#94a3b8",
-        magnitude: Math.abs(Number(item.baseValue) || 0),
-      }))
-    : [];
+  const rawItems = Array.isArray(chartState?.items) ? chartState.items : [];
 
-  const filtered = items.filter((item) => item.magnitude > 0);
-  if (!filtered.length) {
-    return emptyChart(viewBase);
+  const items = rawItems
+    .map((item) => ({
+      label: item.label,
+      baseValue: toNumber(item.baseValue),
+      nativeValue: toNumber(item.nativeValue),
+      nativeCurrency: item.nativeCurrency,
+      color: item.color || "#94a3b8",
+    }))
+    .filter((item) => Number.isFinite(item.baseValue));
+
+  const significant = items.filter((item) => Math.abs(item.baseValue) > 0);
+  const working = significant.length ? significant : items;
+
+  if (!working.length) {
+    return emptyDataset(viewBase);
   }
 
-  const sorted = filtered.sort((a, b) => b.magnitude - a.magnitude);
-  const limit = Math.max(1, Math.min(topN || DEFAULT_EXPOSURE_TOP_N, sorted.length));
+  const sorted = working
+    .map((item) => ({ ...item, magnitude: Math.abs(item.baseValue) }))
+    .sort((a, b) => b.magnitude - a.magnitude);
 
+  const limit = Math.max(1, Math.min(topN, sorted.length));
   const primary = sorted.slice(0, limit);
   const remainder = sorted.slice(limit);
 
@@ -88,9 +40,14 @@ function processChartData(chartState, topN) {
       baseValue: otherBase,
       nativeValue: null,
       nativeCurrency: null,
-      magnitude: otherMagnitude,
       color: "#9ca3af",
-      constituents: remainder.map((item) => ({ ...item })),
+      magnitude: otherMagnitude,
+      constituents: remainder.map((item) => ({
+        label: item.label,
+        baseValue: item.baseValue,
+        nativeValue: item.nativeValue,
+        nativeCurrency: item.nativeCurrency,
+      })),
     });
   }
 
@@ -119,7 +76,63 @@ function processChartData(chartState, topN) {
   return { data, meta };
 }
 
-function emptyChart(viewBase) {
+export function renderExposureChart(canvas, chartState, { topN = DEFAULT_EXPOSURE_TOP_N } = {}) {
+  const prepared = prepareExposureDataset(chartState, topN);
+  return renderPreparedExposureChart(canvas, prepared);
+}
+
+export function renderPreparedExposureChart(canvas, prepared) {
+  if (!canvas || !window.Chart) {
+    return null;
+  }
+
+  if (!prepared.data.labels.length) {
+    destroyExposureChart();
+    return null;
+  }
+
+  if (chartInstance && currentCanvas && currentCanvas !== canvas) {
+    destroyExposureChart();
+  }
+
+  if (!chartInstance) {
+    chartInstance = new window.Chart(canvas.getContext("2d"), {
+      type: "doughnut",
+      data: prepared.data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { usePointStyle: true },
+          },
+          tooltip: {
+            callbacks: buildTooltipCallbacks(prepared.meta),
+          },
+        },
+      },
+    });
+    currentCanvas = canvas;
+  } else {
+    chartInstance.data = prepared.data;
+    chartInstance.options.plugins.tooltip.callbacks = buildTooltipCallbacks(prepared.meta);
+    chartInstance.update();
+  }
+
+  chartInstance.__meta = prepared.meta;
+  return chartInstance;
+}
+
+export function destroyExposureChart() {
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
+    currentCanvas = null;
+  }
+}
+
+function emptyDataset(viewBase) {
   return {
     data: {
       labels: [],
@@ -167,7 +180,7 @@ function buildTooltipCallbacks(meta) {
           );
         });
         if (segment.constituents.length > 3) {
-          lines.push("- …");
+          lines.push("- ...");
         }
       }
 
@@ -189,4 +202,9 @@ function formatCurrency(value, currency) {
     });
     return `${numeric} ${currency ?? ""}`.trim();
   }
+}
+
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }

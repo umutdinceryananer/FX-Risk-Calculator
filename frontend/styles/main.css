@@ -98,6 +98,40 @@ body {
   border-radius: 1rem;
   background: rgba(248, 250, 252, 0.92);
 }
+
+.exposure-list {
+  margin-top: 1.5rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+.exposure-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.exposure-list li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.exposure-list .exposure-label {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.exposure-list .exposure-values {
+  text-align: right;
+}
+
+.exposure-list small {
+  display: block;
+  color: #475569;
+}
 @media (max-width: 767px) {
   .view-root {
     min-height: calc(100vh - 112px);
