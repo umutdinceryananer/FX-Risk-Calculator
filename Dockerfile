@@ -16,9 +16,12 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
 
+RUN chmod +x scripts/entrypoint.sh
+
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 5000
 
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 CMD ["python", "run.py"]
