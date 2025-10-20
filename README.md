@@ -203,3 +203,19 @@ Validation rules:
 - Inside `frontend/`, you can also run `npm run lint` and `npm run format` directly.
 - Update the coverage badge with `coverage run -m pytest && coverage-badge -o coverage.svg`.
 
+
+### Docker Compose
+1. Ensure Docker is running, then build and start the stack:
+   ```bash
+   docker compose up --build
+   ```
+2. API runs on http://127.0.0.1:5000, Postgres on an internal network. To connect locally:
+   ```bash
+   docker compose up db
+   ```
+3. To stop and remove containers/volumes:
+   ```bash
+   docker compose down -v
+   ```
+4. Override settings via `docker-compose.override.yml` (example included for exposing the database).
+
