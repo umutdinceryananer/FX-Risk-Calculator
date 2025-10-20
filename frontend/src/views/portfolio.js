@@ -490,21 +490,7 @@ function formatAmount(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) {
-    return "--";
-  }
-  try {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return "--";
-    }
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date);
-  } catch {
-    return "--";
-  }
+  return formatDateTimeLocal(value, { includeUtcHint: true });
 }
 
 function escapeHtml(value) {

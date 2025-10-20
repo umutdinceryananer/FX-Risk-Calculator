@@ -1,4 +1,5 @@
 import { subscribe, setViewBase, triggerManualRefresh, TIMELINE_DAYS } from "../state.js";
+import { formatDateTimeLocal, formatDate } from "../utils/datetime.js";
 import { showToast } from "../ui/toast.js";
 import {
   prepareExposureDataset,
@@ -479,7 +480,7 @@ function metricMarkup(key, payload) {
         <div class="metric-value display-6 mb-2">${formatCurrency(payload.value, payload.view_base)}</div>
         <p class="text-muted metric-footnote mb-1">Priced positions: ${payload.priced}</p>
         ${unpricedSection}
-        <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
+        <p class="text-muted metric-footnote mb-0">As of ${formatDateTimeLocal(payload.as_of, { includeUtcHint: true })}</p>
       `;
     }
     case "pnl": {
@@ -506,7 +507,7 @@ function metricMarkup(key, payload) {
         </div>
         <p class="text-muted metric-footnote mb-1">Prev value: ${formatCurrency(payload.value_previous ?? "0", payload.view_base)}</p>
         ${unpricedSection}
-        <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
+        <p class="text-muted metric-footnote mb-0">As of ${formatDateTimeLocal(payload.as_of, { includeUtcHint: true })}</p>
       `;
     }
     case "exposure": {
@@ -605,7 +606,7 @@ function renderHealthSummary({ container, sourceNode, staleNode, updatedNode, he
   const snapshot = health.data;
   updateText(sourceNode, snapshot?.source ?? "--");
   updateText(staleNode, formatBoolean(snapshot?.stale));
-  updateText(updatedNode, formatAsOf(snapshot?.last_updated));
+  updateText(updatedNode, formatDateTimeLocal(snapshot?.last_updated, { includeUtcHint: true }));
 }
 
 function titleFor(key) {
@@ -660,16 +661,8 @@ function formatCurrency(value, currency) {
   }
 }
 
-function formatAsOf(iso) {
-  if (!iso) {
-    return "n/a";
-  }
-  try {
-    const date = new Date(iso);
-    return date.toLocaleString();
-  } catch {
-    return iso;
-  }
+function formatAsOf(value) {
+  return formatDateTimeLocal(value, { includeUtcHint: true });
 }
 
 function renderUnpricedSection(count, reasons, emptyText, label = "Unpriced") {
