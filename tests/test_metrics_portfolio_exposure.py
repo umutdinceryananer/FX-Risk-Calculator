@@ -87,11 +87,14 @@ def test_exposure_default_base(client, seeded_portfolio):
     assert payload["view_base"] == "USD"
     exposures = {item["currency_code"]: item for item in payload["exposures"]}
     assert "OTHER" not in exposures
-    assert Decimal(exposures["USD"]["net_native"]) == Decimal("150")
-    assert Decimal(exposures["USD"]["base_equivalent"]) == Decimal("150")
-    assert Decimal(exposures["EUR"]["base_equivalent"]).quantize(Decimal("0.000000000001")) == Decimal("222.222222222222")
-    assert Decimal(exposures["GBP"]["base_equivalent"]).quantize(Decimal("0.1")) == Decimal("-66.7")
-    assert Decimal(exposures["JPY"]["base_equivalent"]).quantize(Decimal("0.000000000001")) == Decimal("8.333333333333")
+    assert Decimal(exposures["USD"]["net_native"]) == Decimal("150.0000")
+    assert Decimal(exposures["USD"]["base_equivalent"]) == Decimal("150.00")
+    assert Decimal(exposures["EUR"]["net_native"]) == Decimal("200.0000")
+    assert Decimal(exposures["EUR"]["base_equivalent"]) == Decimal("222.22")
+    assert Decimal(exposures["GBP"]["net_native"]) == Decimal("-40.0000")
+    assert Decimal(exposures["GBP"]["base_equivalent"]) == Decimal("-66.67")
+    assert Decimal(exposures["JPY"]["net_native"]) == Decimal("1000.0000")
+    assert Decimal(exposures["JPY"]["base_equivalent"]) == Decimal("8.33")
     assert payload["priced"] == 4
     assert payload["unpriced"] == 0
     assert payload["unpriced_reasons"] == {}

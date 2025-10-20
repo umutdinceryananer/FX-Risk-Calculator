@@ -22,6 +22,7 @@ from app.services.fx_conversion import (
     normalize_currency,
     rebase_rates,
     to_decimal,
+    quantize_amount,
 )
 from app.validation import validate_currency_code
 from app.services.currency_registry import registry
@@ -83,7 +84,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
             portfolio_id=portfolio.id,
             portfolio_base=portfolio_base,
             view_base=resolved_view_base,
-            value=Decimal("0"),
+            value=quantize_amount(Decimal("0")),
             priced=0,
             unpriced=0,
             unpriced_reasons={},
@@ -101,7 +102,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
             portfolio_id=portfolio.id,
             portfolio_base=portfolio_base,
             view_base=resolved_view_base,
-            value=Decimal("0"),
+            value=quantize_amount(Decimal("0")),
             priced=0,
             unpriced=len(positions),
             unpriced_reasons=_serialize_reason_map(reason_map),
@@ -115,6 +116,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
         resolved_view_base,
         effective_rates,
     )
+    total = quantize_amount(total)
 
     return PortfolioValueResult(
         portfolio_id=portfolio.id,
@@ -326,17 +328,22 @@ def calculate_currency_exposure(
             bucket["native"] += native_signed
             bucket["base"] += base_equiv
 
-    exposures = [
-        CurrencyExposure(currency_code=code, net_native=values["native"], base_equivalent=values["base"])
-        for code, values in totals.items()
-    ]
+    exposures: List[CurrencyExposure] = []
+    for code, values in totals.items():
+        exposures.append(
+            CurrencyExposure(
+                currency_code=code,
+                net_native=quantize_amount(values["native"], places=4),
+                base_equivalent=quantize_amount(values["base"]),
+            )
+        )
     exposures.sort(key=lambda item: abs(item.base_equivalent), reverse=True)
 
     if top_n is not None and top_n > 0 and len(exposures) > top_n:
         head = exposures[:top_n]
         tail = exposures[top_n:]
-        other_native = sum(item.net_native for item in tail)
-        other_base = sum(item.base_equivalent for item in tail)
+        other_native = quantize_amount(sum(item.net_native for item in tail), places=4)
+        other_base = quantize_amount(sum(item.base_equivalent for item in tail))
         head.append(
             CurrencyExposure(
                 currency_code="OTHER",
@@ -410,7 +417,7 @@ def calculate_daily_pnl(
     resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
 
     if not positions:
-        zero = Decimal("0")
+        zero = quantize_amount(Decimal("0"))
         return PortfolioDailyPnLResult(
             portfolio_id=portfolio_id,
             portfolio_base=portfolio_base,
@@ -436,7 +443,7 @@ def calculate_daily_pnl(
     reason_map_previous = _init_reason_map()
 
     if latest_timestamp is None or previous_timestamp is None:
-        zero = Decimal("0")
+        zero = quantize_amount(Decimal("0"))
         for position in positions:
             _add_reason(reason_map_current, UNPRICED_REASON_MISSING_RATE, position.currency_code)
             _add_reason(reason_map_previous, UNPRICED_REASON_MISSING_RATE, position.currency_code)
@@ -462,7 +469,7 @@ def calculate_daily_pnl(
     previous_rates = _rates_for_timestamp(session, canonical_base, previous_timestamp)
 
     if not latest_rates or not previous_rates:
-        zero = Decimal("0")
+        zero = quantize_amount(Decimal("0"))
         for position in positions:
             _add_reason(reason_map_current, UNPRICED_REASON_MISSING_RATE, position.currency_code)
             _add_reason(reason_map_previous, UNPRICED_REASON_MISSING_RATE, position.currency_code)
@@ -498,7 +505,9 @@ def calculate_daily_pnl(
         effective_previous,
     )
 
-    pnl = value_current - value_previous if value_previous is not None else value_current
+    value_current = quantize_amount(value_current)
+    value_previous = quantize_amount(value_previous) if value_previous is not None else None
+    pnl = quantize_amount(value_current - value_previous) if value_previous is not None else value_current
 
     return PortfolioDailyPnLResult(
         portfolio_id=portfolio_id,
@@ -584,7 +593,7 @@ def calculate_portfolio_value_series(
         series.append(
             PortfolioValueSeriesPoint(
                 date=point_date,
-                value=value,
+                value=quantize_amount(value),
             )
         )
 

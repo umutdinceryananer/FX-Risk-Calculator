@@ -11,6 +11,8 @@ from app.services.fx_conversion import (
     normalize_currency,
     rebase_rates,
     rebase_snapshot,
+    quantize_amount,
+    quantize_rate,
 )
 
 
@@ -97,3 +99,15 @@ def test_rebase_snapshot_missing_target_currency():
 def test_normalize_currency_rejects_blank():
     with pytest.raises(ValueError):
         normalize_currency(" ")
+
+
+def test_quantize_rate_default_places():
+    assert quantize_rate("1.23456789") == Decimal("1.234568")
+    assert quantize_rate("0.1234564") == Decimal("0.123456")
+
+
+def test_quantize_amount_half_even():
+    assert quantize_amount("1.005") == Decimal("1.00")
+    assert quantize_amount("1.015") == Decimal("1.02")
+    assert quantize_amount("12.34567", places=4) == Decimal("12.3457")
+

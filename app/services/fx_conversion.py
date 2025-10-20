@@ -7,6 +7,9 @@ from typing import Dict, Mapping, MutableMapping
 
 
 ROUNDING_PRECISION = 28
+RATE_DECIMAL_PLACES = 6
+AMOUNT_DECIMAL_PLACES = 2
+NATIVE_DECIMAL_PLACES = 4
 
 
 def get_decimal_context():
@@ -35,6 +38,25 @@ def to_decimal(value: Decimal | int | float | str) -> Decimal:
     context = get_decimal_context()
     with localcontext(context):
         return Decimal(str(value))
+
+
+def _quantize(value: Decimal | int | float | str, places: int) -> Decimal:
+    exponent = Decimal(1).scaleb(-places)
+    context = get_decimal_context()
+    with localcontext(context):
+        return to_decimal(value).quantize(exponent)
+
+
+def quantize_rate(value: Decimal | int | float | str, *, places: int = RATE_DECIMAL_PLACES) -> Decimal:
+    """Quantize a rate value to the desired number of decimal places."""
+
+    return _quantize(value, places)
+
+
+def quantize_amount(value: Decimal | int | float | str, *, places: int = AMOUNT_DECIMAL_PLACES) -> Decimal:
+    """Quantize a monetary amount to the desired number of decimal places."""
+
+    return _quantize(value, places)
 
 
 class RebaseError(ValueError):

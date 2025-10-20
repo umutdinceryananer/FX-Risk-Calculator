@@ -101,7 +101,7 @@ def test_portfolio_value_handles_missing_rates(client, app, seeded_portfolio):
     payload = response.get_json()
     assert payload["priced"] == 0
     assert payload["unpriced"] == 3
-    assert payload["value"] == "0"
+    assert payload["value"] == "0.00"
     assert payload["as_of"] is None
     reasons = payload["unpriced_reasons"]
     assert "missing_rate" in reasons

@@ -88,7 +88,7 @@ def test_daily_pnl_custom_base(client, seeded_portfolio):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["view_base"] == "EUR"
-    assert Decimal(payload["pnl"]).quantize(Decimal("0.000001")) == Decimal("7.352941")
+    assert Decimal(payload["pnl"]) == Decimal("7.35")
     assert payload["unpriced_current_reasons"] == {}
     assert payload["unpriced_previous_reasons"] == {}
 
@@ -104,7 +104,7 @@ def test_daily_pnl_missing_rates(client, app, seeded_portfolio):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["value_previous"] is None
-    assert payload["value_current"] == "0"
+    assert payload["value_current"] == "0.00"
     assert payload["priced_current"] == 0
     assert payload["unpriced_current"] == 2
     reasons_current = payload["unpriced_current_reasons"]
