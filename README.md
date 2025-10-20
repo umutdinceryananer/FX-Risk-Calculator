@@ -190,3 +190,9 @@ Validation rules:
 - Set `LOG_JSON_ENABLED=true` to emit JSON-formatted logs. Each request log now carries `event`, `route`, `method`, `status`, `duration_ms`, `request_id`, `source`, and `stale` fields, and responses include an `X-Request-ID` header.
 - Provider fetch attempts are logged with per-provider timings (`event=provider.fetch`, `duration_ms`, `provider`, `status`) while stale cache fallbacks emit `event=provider.stale` with `stale=true` so pipelines can track data freshness.
 
+
+## Development Tooling
+- Install git hooks once with `pre-commit install`.
+- `make lint` runs Python and frontend linters; `make format` formats code; `make typecheck` executes mypy.
+- Inside `frontend/`, you can also run `npm run lint` and `npm run format` directly.
+
