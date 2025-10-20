@@ -167,7 +167,10 @@ function buildTooltipCallbacks(meta) {
 
       if (segment.nativeCurrency) {
         lines.push(
-          `Native (${segment.nativeCurrency}): ${formatCurrencyNativeAmount(segment.nativeValue, segment.nativeCurrency)}`,
+          `Native (${segment.nativeCurrency}): ${formatCurrencyNativeAmount(
+            segment.nativeValue,
+            segment.nativeCurrency
+          )}`
         );
       }
 
@@ -175,10 +178,10 @@ function buildTooltipCallbacks(meta) {
         lines.push("Breakdown:");
         segment.constituents.slice(0, 3).forEach((item) => {
           lines.push(
-            `- ${item.label}: ${formatCurrencyAmount(item.baseValue, meta.viewBase)} / Native ${formatCurrencyNativeAmount(
-              item.nativeValue,
-              item.nativeCurrency,
-            )}`,
+            `- ${item.label}: ${formatCurrencyAmount(
+              item.baseValue,
+              meta.viewBase
+            )} / Native ${formatCurrencyNativeAmount(item.nativeValue, item.nativeCurrency)}`
           );
         });
         if (segment.constituents.length > 3) {

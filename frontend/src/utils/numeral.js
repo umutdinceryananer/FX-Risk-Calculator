@@ -32,7 +32,7 @@ export function formatDecimal(
     useGrouping = true,
     fallback = "--",
     signDisplay,
-  } = {},
+  } = {}
 ) {
   const numeric = coerceNumber(value);
   if (numeric === null) {
@@ -97,7 +97,7 @@ export function formatRate(value, options = {}) {
 
 export function formatPercent(
   value,
-  { minimumFractionDigits = 2, maximumFractionDigits = 2, signDisplay = "always", ...rest } = {},
+  { minimumFractionDigits = 2, maximumFractionDigits = 2, signDisplay = "always", ...rest } = {}
 ) {
   return formatDecimal(value, {
     minimumFractionDigits,
@@ -116,7 +116,7 @@ export function formatCurrencyAmount(
     fallback = "--",
     signDisplay,
     useGrouping = true,
-  } = {},
+  } = {}
 ) {
   const numeric = coerceNumber(value);
   if (numeric === null) {
@@ -160,14 +160,7 @@ export function formatCurrencyNativeAmount(value, currency, options = {}) {
 }
 
 function basicFormat(value, { fractionDigits = 2, useGrouping, signDisplay }) {
-  const sign =
-    value < 0
-      ? "-"
-      : signDisplay === "always"
-      ? "+"
-      : signDisplay === "never"
-      ? ""
-      : "";
+  const sign = value < 0 ? "-" : signDisplay === "always" ? "+" : signDisplay === "never" ? "" : "";
   const absValue = Math.abs(value);
   const fixed = absValue.toFixed(fractionDigits);
   let [integer, fraction] = fixed.split(".");

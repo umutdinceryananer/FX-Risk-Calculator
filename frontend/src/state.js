@@ -99,7 +99,10 @@ export async function refreshData() {
 
   try {
     const query = new URLSearchParams({ base: state.viewBase });
-    const timelineQuery = new URLSearchParams({ base: state.viewBase, days: String(TIMELINE_DAYS) });
+    const timelineQuery = new URLSearchParams({
+      base: state.viewBase,
+      days: String(TIMELINE_DAYS),
+    });
     const [value, pnl, exposure, health, timeline] = await Promise.all([
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/value?${query}`),
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/pnl/daily?${query}`),
@@ -294,10 +297,7 @@ export function setPositionsSort(sort, direction) {
     }
   }
 
-  if (
-    normalizedSort === state.positions.sort &&
-    nextDirection === state.positions.direction
-  ) {
+  if (normalizedSort === state.positions.sort && nextDirection === state.positions.direction) {
     return;
   }
 
@@ -313,10 +313,7 @@ export function setPositionsFilters({ currency, side } = {}) {
   const normalizedCurrency = normalizeCurrencyFilter(currency);
   const normalizedSide = normalizeSideFilter(side);
 
-  if (
-    normalizedCurrency === state.positions.currency &&
-    normalizedSide === state.positions.side
-  ) {
+  if (normalizedCurrency === state.positions.currency && normalizedSide === state.positions.side) {
     return;
   }
 
@@ -399,15 +396,7 @@ function buildExposureChartData(exposure) {
 }
 
 function buildPalette(count) {
-  const baseColors = [
-    "#2563eb",
-    "#10b981",
-    "#f59e0b",
-    "#f97316",
-    "#8b5cf6",
-    "#ec4899",
-    "#22d3ee",
-  ];
+  const baseColors = ["#2563eb", "#10b981", "#f59e0b", "#f97316", "#8b5cf6", "#ec4899", "#22d3ee"];
 
   if (count <= baseColors.length) {
     return baseColors.slice(0, count);
@@ -560,7 +549,10 @@ function normalizeSortField(value) {
   if (!value) {
     return null;
   }
-  const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (normalized === "createdat") {
     return "created_at";
   }
@@ -616,6 +608,3 @@ function toPositiveInteger(value) {
   }
   return Math.floor(numeric);
 }
-
-
-

@@ -1,22 +1,9 @@
-import {
-  subscribe,
-  setViewBase,
-  triggerManualRefresh,
-} from "../state.js";
+import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
 import { showToast } from "../ui/toast.js";
 import { formatDateTimeLocal } from "../utils/datetime.js";
-import {
-  formatCurrencyAmount,
-  formatCurrencyNativeAmount,
-} from "../utils/numeral.js";
-import {
-  renderExposureChart,
-  destroyExposureChart,
-} from "../charts/exposure.js";
-import {
-  renderTimelineChart,
-  destroyTimelineChart,
-} from "../charts/timeline.js";
+import { formatCurrencyAmount, formatCurrencyNativeAmount } from "../utils/numeral.js";
+import { renderExposureChart, destroyExposureChart } from "../charts/exposure.js";
+import { renderTimelineChart, destroyTimelineChart } from "../charts/timeline.js";
 
 const VIEW_BASE_PATTERN = /^[A-Z]{3}$/;
 
@@ -83,14 +70,11 @@ export function renderDashboardView(root) {
     renderExposureSection(elements, stateSnapshot.metrics, stateSnapshot.charts);
     renderTimelineSection(elements, stateSnapshot.charts);
 
-    ({ lastMetricsError, lastRefreshError, lastHealthError } = maybeAnnounceErrors(
-      stateSnapshot,
-      {
-        metrics: lastMetricsError,
-        refresh: lastRefreshError,
-        health: lastHealthError,
-      },
-    ));
+    ({ lastMetricsError, lastRefreshError, lastHealthError } = maybeAnnounceErrors(stateSnapshot, {
+      metrics: lastMetricsError,
+      refresh: lastRefreshError,
+      health: lastHealthError,
+    }));
   });
 
   const onViewBaseInput = (event) => {
@@ -428,9 +412,8 @@ function renderPnlCard(elements, metricsState) {
   pnlStatus.classList.toggle("text-bg-info", pnl.positions_changed);
 
   pnlCurrent.textContent = formatCurrencyAmount(pnl.value_current, baseCurrency);
-  pnlPrevious.textContent = pnl.value_previous != null
-    ? formatCurrencyAmount(pnl.value_previous, baseCurrency)
-    : "--";
+  pnlPrevious.textContent =
+    pnl.value_previous != null ? formatCurrencyAmount(pnl.value_previous, baseCurrency) : "--";
   pnlPrevDate.textContent = pnl.prev_date
     ? formatDateTimeLocal(pnl.prev_date, { includeUtcHint: true })
     : "--";
@@ -488,7 +471,8 @@ function renderExposureSection(elements, metricsState, chartsState) {
 
   const exposureMetrics = metricsState.exposure;
   const chartData = chartsState.exposure;
-  const viewBase = chartData?.viewBase || exposureMetrics?.view_base || metricsState.value?.view_base || "USD";
+  const viewBase =
+    chartData?.viewBase || exposureMetrics?.view_base || metricsState.value?.view_base || "USD";
 
   if (metricsState.loading) {
     exposureStatus.textContent = "Loading…";
@@ -527,7 +511,9 @@ function renderExposureSection(elements, metricsState, chartsState) {
 }
 
 function renderTimelineSection(elements, chartsState) {
-  const timelineChart = elements.timelineCanvas ? renderTimelineChart(elements.timelineCanvas, chartsState.timeline) : null;
+  const timelineChart = elements.timelineCanvas
+    ? renderTimelineChart(elements.timelineCanvas, chartsState.timeline)
+    : null;
   togglePlaceholder(elements.timelineZero, Boolean(timelineChart));
 }
 
@@ -561,7 +547,9 @@ function renderExposureList(listEl, emptyEl, items, viewBase) {
             <div class="fw-semibold">${escapeHtml(item.label || "--")}</div>
             ${
               nativeLabel
-                ? `<small class="text-muted">Native (${escapeHtml(nativeCurrency)}): ${escapeHtml(nativeLabel)}</small>`
+                ? `<small class="text-muted">Native (${escapeHtml(nativeCurrency)}): ${escapeHtml(
+                    nativeLabel
+                  )}</small>`
                 : ""
             }
           </div>

@@ -102,10 +102,7 @@ export function renderPortfolioView(root) {
 
   const changePage = (offset) => {
     const totalPages = computeTotalPages(currentPositions);
-    const nextPage = Math.min(
-      Math.max(currentPositions.page + offset, 1),
-      totalPages
-    );
+    const nextPage = Math.min(Math.max(currentPositions.page + offset, 1), totalPages);
     if (nextPage !== currentPositions.page) {
       setPositionsPage(nextPage);
     }
@@ -380,7 +377,9 @@ function renderPositionRow(item) {
   const amount = formatNativeAmount(item?.amount);
   const side = (item?.side || "").toUpperCase();
   const sideContent = side
-    ? `<span class="badge ${side === "SHORT" ? "text-bg-danger" : "text-bg-success"} positions-side-badge">${escapeHtml(side)}</span>`
+    ? `<span class="badge ${
+        side === "SHORT" ? "text-bg-danger" : "text-bg-success"
+      } positions-side-badge">${escapeHtml(side)}</span>`
     : `<span class="text-muted">--</span>`;
   const createdAtRaw = item?.created_at;
   const createdAt = formatDateTime(createdAtRaw);
@@ -432,7 +431,10 @@ function updateSortIndicators(sortButtons, positions) {
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
 
     if (headerCell) {
-      headerCell.setAttribute("aria-sort", isActive ? (direction === "desc" ? "descending" : "ascending") : "none");
+      headerCell.setAttribute(
+        "aria-sort",
+        isActive ? (direction === "desc" ? "descending" : "ascending") : "none"
+      );
     }
 
     if (!icon) {

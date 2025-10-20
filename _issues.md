@@ -506,7 +506,7 @@ Run tests/lint in CI with Postgres service; publish coverage badge.
 
 # Issue 33: Pre-commit hooks + lint + type-check
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
