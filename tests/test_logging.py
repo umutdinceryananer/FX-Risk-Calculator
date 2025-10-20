@@ -116,7 +116,9 @@ def test_request_logging_emits_correlation_fields():
         client = app.test_client()
         response = client.get("/ok")
 
-    records = [record for record in handler.records if record.message == "Request handled"]
+    records = [
+        record for record in handler.records if record.message == "Request handled"
+    ]
     assert records
     record = records[-1]
     assert record.event == "request.completed"
@@ -142,7 +144,9 @@ def test_request_logging_captures_errors():
         with pytest.raises(RuntimeError):
             client.get("/boom")
 
-    records = [record for record in handler.records if record.message == "Request failed"]
+    records = [
+        record for record in handler.records if record.message == "Request failed"
+    ]
     assert records
     record = records[-1]
     assert record.event == "request.failed"

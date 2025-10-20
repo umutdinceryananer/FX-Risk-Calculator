@@ -178,3 +178,8 @@ Validation rules:
   - `positions_changed` will flip to `true` if the currency composition (counts by currency/side) differs between snapshots.
   - `value_previous` is `null` when no earlier snapshot exists; in this case `pnl` equals the current value.
 
+
+## Structured Logging
+- Set `LOG_JSON_ENABLED=true` to emit JSON-formatted logs. Each request log now carries `event`, `route`, `method`, `status`, `duration_ms`, `request_id`, `source`, and `stale` fields, and responses include an `X-Request-ID` header.
+- Provider fetch attempts are logged with per-provider timings (`event=provider.fetch`, `duration_ms`, `provider`, `status`) while stale cache fallbacks emit `event=provider.stale` with `stale=true` so pipelines can track data freshness.
+

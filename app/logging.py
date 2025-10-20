@@ -9,8 +9,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
-from flask import g, request
+from flask import g, has_request_context, request
 from werkzeug.exceptions import HTTPException
+
 REQUEST_ID_HEADER = "X-Request-ID"
 
 LOGGING_CONFIG_FLAG = "_logging_configured"
@@ -46,7 +47,9 @@ class JSONLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(
+                record.created, tz=timezone.utc
+            ).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -225,8 +228,41 @@ def _to_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _replace_handlers(logger: logging.Logger, handlers: Iterable[logging.Handler]) -> None:
+def _replace_handlers(
+    logger: logging.Logger, handlers: Iterable[logging.Handler]
+) -> None:
     for existing in logger.handlers[:]:
         logger.removeHandler(existing)
     for handler in handlers:
         logger.addHandler(handler)
+
+
+def provider_log_extra(
+    *,
+    provider: str,
+    base: str,
+    event: str,
+    status: str,
+    duration_ms: Optional[float],
+    stale: bool,
+    error: Optional[str] = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "event": event,
+        "provider": provider,
+        "base": base,
+        "status": status,
+        "duration_ms": round(duration_ms, 3) if duration_ms is not None else None,
+        "request_id": _current_request_id(),
+        "source": provider,
+        "stale": stale,
+    }
+    if error:
+        payload["error"] = error
+    return {key: value for key, value in payload.items() if value is not None}
+
+
+def _current_request_id() -> Optional[str]:
+    if not has_request_context():
+        return None
+    return getattr(g, "request_id", None)
