@@ -26,7 +26,11 @@ blueprints.
    cd ..
    ```
    This enables `npm run lint` / `npm run format` for the SPA source.
-5. Run the development server:
+5. Install git hooks for local linting:
+   ```bash
+   pre-commit install
+   ```
+6. Run the development server:
    ```bash
    python run.py
    ```
@@ -193,6 +197,6 @@ Validation rules:
 
 ## Development Tooling
 - Install git hooks once with `pre-commit install`.
-- `make lint` runs Python and frontend linters; `make format` formats code; `make typecheck` executes mypy.
+- `make lint` runs Python and frontend linters; `make format` formats code; `make typecheck` runs mypy.
 - Inside `frontend/`, you can also run `npm run lint` and `npm run format` directly.
 
