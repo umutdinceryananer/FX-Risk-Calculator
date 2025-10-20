@@ -40,6 +40,8 @@ blueprints.
 - `FX_CANONICAL_BASE` defines the stored canonical base (default `USD`); other view bases are computed on demand via rebasing helpers.
 
 - `SCHEDULER_ENABLED` toggles APScheduler integration. `RATES_REFRESH_CRON` sets the cron expression.
+- `REFRESH_THROTTLE_SECONDS` controls how frequently `POST /rates/refresh` may succeed (default 60 seconds). Set to `0` to disable throttling.
+- CORS is opt-in: configure `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_HEADERS`, `CORS_ALLOWED_METHODS`, and `CORS_MAX_AGE` (comma-separated values) to permit browser clients like Vite or CRA.
 - CLI backfill: `flask --app app.cli.backfill backfill-rates --days 30 --base USD`
 ## Endpoints
 - `GET /health` returns general service health information.
@@ -68,6 +70,9 @@ Trigger an on-demand rates refresh:
 curl -X POST http://127.0.0.1:5000/rates/refresh
 ```
 Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust cron with `RATES_REFRESH_CRON`.
+
+- Refresh requests are rate-limited per app instance. A 429 response includes `{"retry_after": <seconds>}`. Tune the window via `REFRESH_THROTTLE_SECONDS`.
+- When CORS is enabled (see `CORS_ALLOWED_ORIGINS` et al.), preflight (`OPTIONS`) requests are handled automatically for the `/rates/refresh` route.
 
 ## API Documentation
 - Swagger UI: http://127.0.0.1:5000/docs/
