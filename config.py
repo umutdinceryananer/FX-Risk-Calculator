@@ -27,6 +27,9 @@ class BaseConfig:
     FX_FALLBACK_PROVIDER = os.getenv("FX_FALLBACK_PROVIDER")
     FX_CANONICAL_BASE = os.getenv("FX_CANONICAL_BASE", "USD")
     REFRESH_THROTTLE_SECONDS = int(os.getenv("REFRESH_THROTTLE_SECONDS", "60"))
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    LOG_JSON_ENABLED = os.getenv("LOG_JSON_ENABLED", "false").lower() == "true"
+    LOG_FORMAT = os.getenv("LOG_FORMAT", "%(asctime)s %(levelname)s [%(name)s] %(message)s")
     CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
     CORS_ALLOWED_HEADERS = os.getenv("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")
     CORS_ALLOWED_METHODS = os.getenv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
