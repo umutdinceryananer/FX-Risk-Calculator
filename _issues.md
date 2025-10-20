@@ -676,7 +676,7 @@ Consistent Decimal rounding and UI formatting policy.
 
 # Issue 29: UTC consistency
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
