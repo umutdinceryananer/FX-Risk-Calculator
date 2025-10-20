@@ -163,14 +163,21 @@ export async function triggerManualRefresh() {
     });
     return { ok: true, message: response?.message || "Refresh triggered." };
   } catch (error) {
+    const retryAfter = toPositiveInteger(error?.payload?.retry_after);
+    let friendlyMessage = error?.message || "Unable to refresh FX rates.";
+    if (error?.status === 429 && retryAfter) {
+      friendlyMessage = `Refresh throttled. Try again in ${retryAfter} seconds.`;
+    } else if (error?.status === 503) {
+      friendlyMessage = "FX providers are temporarily unavailable. Please retry shortly.";
+    }
     updateState((draft) => {
       draft.refresh.loading = false;
       draft.refresh.error = {
-        message: error?.message || "Unable to refresh FX rates.",
+        message: friendlyMessage,
         status: error?.status,
       };
     });
-    return { ok: false, message: error?.message || "Unable to refresh FX rates." };
+    return { ok: false, message: friendlyMessage, status: error?.status };
   }
 }
 

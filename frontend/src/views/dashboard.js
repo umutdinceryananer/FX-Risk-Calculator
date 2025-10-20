@@ -53,10 +53,13 @@ export function renderDashboardView(root) {
     }, REFRESH_DEBOUNCE_MS);
 
     const result = await triggerManualRefresh();
+    const isThrottled = result.status === 429;
+    const toastVariant = result.ok ? "success" : isThrottled ? "warning" : "danger";
+    const toastTitle = result.ok ? "Refresh queued" : isThrottled ? "Refresh throttled" : "Refresh failed";
     showToast({
-      title: result.ok ? "Refresh queued" : "Refresh failed",
+      title: toastTitle,
       message: result.message,
-      variant: result.ok ? "success" : "danger",
+      variant: toastVariant,
     });
   });
 
@@ -465,22 +468,44 @@ function renderMetrics(cardNodes, metrics) {
 function metricMarkup(key, payload) {
   switch (key) {
     case "value": {
+      const unpricedSection = renderUnpricedSection(
+        payload.unpriced,
+        payload.unpriced_reasons,
+        "All positions priced.",
+        "Unpriced"
+      );
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2">Portfolio Value</p>
         <div class="metric-value display-6 mb-2">${formatCurrency(payload.value, payload.view_base)}</div>
-        <p class="text-muted metric-footnote mb-1">Priced: ${payload.priced} / Unpriced: ${payload.unpriced}</p>
+        <p class="text-muted metric-footnote mb-1">Priced positions: ${payload.priced}</p>
+        ${unpricedSection}
         <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
       `;
     }
     case "pnl": {
       const pnlNumber = Number(payload.pnl || 0);
       const toneClass = pnlNumber < 0 ? "text-danger" : pnlNumber > 0 ? "text-success" : "text-body";
+      const currentBadge = renderUnpricedBadge(
+        payload.unpriced_current,
+        payload.unpriced_current_reasons,
+        "Current snapshot"
+      );
+      const previousBadge = renderUnpricedBadge(
+        payload.unpriced_previous,
+        payload.unpriced_previous_reasons,
+        "Previous snapshot"
+      );
+      const badgeGroup = [currentBadge, previousBadge].filter(Boolean).join("");
+      const unpricedSection = badgeGroup
+        ? `<div class="metric-unpriced-group mt-2">${badgeGroup}</div>`
+        : `<p class="text-muted metric-footnote mb-1">All snapshots priced.</p>`;
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2">Daily P&L</p>
         <div class="metric-value display-6 mb-1 ${toneClass}">
           ${formatCurrency(payload.pnl, payload.view_base)}
         </div>
         <p class="text-muted metric-footnote mb-1">Prev value: ${formatCurrency(payload.value_previous ?? "0", payload.view_base)}</p>
+        ${unpricedSection}
         <p class="text-muted metric-footnote mb-0">As of ${formatAsOf(payload.as_of)}</p>
       `;
     }
@@ -489,11 +514,17 @@ function metricMarkup(key, payload) {
       const unpriced = Number(payload.unpriced || 0);
       const totalPositions = priced + unpriced;
       const uniqueCurrencies = Array.isArray(payload.exposures) ? payload.exposures.length : 0;
+      const unpricedSection = renderUnpricedSection(
+        payload.unpriced,
+        payload.unpriced_reasons,
+        "All exposure positions priced.",
+        "Awaiting pricing"
+      );
       return `
         <p class="text-muted text-uppercase fw-semibold small mb-2"># Positions</p>
         <div class="metric-value display-6 mb-2">${totalPositions}</div>
         <p class="text-muted metric-footnote mb-1">Priced positions: ${priced}</p>
-        <p class="text-muted metric-footnote mb-1">Awaiting pricing: ${unpriced}</p>
+        ${unpricedSection}
         <p class="text-muted metric-footnote mb-0">Tracked currencies: ${uniqueCurrencies}</p>
       `;
     }
@@ -639,4 +670,76 @@ function formatAsOf(iso) {
   } catch {
     return iso;
   }
+}
+
+function renderUnpricedSection(count, reasons, emptyText, label = "Unpriced") {
+  const badgeMarkup = renderUnpricedBadge(count, reasons, label);
+  if (badgeMarkup) {
+    return `<div class="metric-unpriced-group mt-2">${badgeMarkup}</div>`;
+  }
+  return `<p class="text-muted metric-footnote mb-1">${escapeHtml(emptyText)}</p>`;
+}
+
+function renderUnpricedBadge(count, reasons, label = "Unpriced") {
+  const total = Number(count || 0);
+  if (!total) {
+    return "";
+  }
+  const tooltip = formatUnpricedTooltip(reasons);
+  const safeLabel = escapeHtml(label);
+  const safeTooltip = escapeHtml(tooltip);
+  return `<span class="badge metric-unpriced-badge" title="${safeTooltip}" aria-label="${safeLabel}: ${total}">${safeLabel}: ${total}</span>`;
+}
+
+function formatUnpricedTooltip(reasonMap) {
+  if (!reasonMap || typeof reasonMap !== "object") {
+    return "Awaiting pricing for selected positions.";
+  }
+
+  const entries = [];
+  for (const [key, codes] of Object.entries(reasonMap)) {
+    if (!Array.isArray(codes) || codes.length === 0) {
+      continue;
+    }
+    const label = reasonLabel(key);
+    entries.push(`${label}: ${codes.join(", ")}`);
+  }
+
+  if (entries.length === 0) {
+    return "Awaiting pricing for selected positions.";
+  }
+  return entries.join("; ");
+}
+
+function reasonLabel(key) {
+  switch (key) {
+    case "missing_rate":
+      return "Missing rate";
+    case "unknown_currency":
+      return "Unknown currency";
+    default:
+      return key.replace(/_/g, " ");
+  }
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value).replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return char;
+    }
+  });
 }

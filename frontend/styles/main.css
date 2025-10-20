@@ -44,6 +44,26 @@ body {
   font-size: 0.825rem;
 }
 
+.metric-unpriced-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.metric-unpriced-badge {
+  background-color: rgba(251, 191, 36, 0.2);
+  color: #92400e;
+  border: 1px dashed rgba(217, 119, 6, 0.55);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.35rem 0.65rem;
+}
+
+.metric-unpriced-badge:hover {
+  background-color: rgba(251, 191, 36, 0.3);
+}
+
 .navbar {
   border-bottom: 1px solid rgba(15, 23, 42, 0.05);
 }
