@@ -2,6 +2,24 @@ import { getJson, postJson } from "./api.js";
 
 export const TIMELINE_DAYS = 30;
 
+const POSITION_SORT_FIELDS = ["currency", "amount", "side", "created_at"];
+const POSITION_DIRECTION_VALUES = ["asc", "desc"];
+const POSITION_SIDE_VALUES = ["LONG", "SHORT"];
+const POSITIONS_DEFAULTS = {
+  items: [],
+  total: 0,
+  page: 1,
+  pageSize: 25,
+  currency: "",
+  side: "",
+  sort: "created_at",
+  direction: "asc",
+  loading: false,
+  error: null,
+};
+
+let positionsRequestToken = 0;
+
 const subscribers = new Set();
 
 const state = {
@@ -33,6 +51,18 @@ const state = {
       data: [],
       viewBase: "USD",
     },
+  },
+  positions: {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 25,
+    currency: "",
+    side: "",
+    sort: "created_at",
+    direction: "asc",
+    loading: false,
+    error: null,
   },
 };
 
@@ -127,6 +157,7 @@ export async function triggerManualRefresh() {
   try {
     const response = await postJson("/rates/refresh", {});
     await refreshData();
+    await refreshPositions();
     updateState((draft) => {
       draft.refresh.loading = false;
     });
@@ -159,8 +190,136 @@ export function setPortfolioId(id) {
   }
   updateState((draft) => {
     draft.portfolioId = id;
+    draft.positions = clonePositionsState(POSITIONS_DEFAULTS);
   });
   refreshData();
+  refreshPositions({ resetPage: true });
+}
+
+export async function refreshPositions({ resetPage = false } = {}) {
+  if (!state.portfolioId) {
+    return;
+  }
+
+  const requestToken = ++positionsRequestToken;
+
+  updateState((draft) => {
+    if (resetPage) {
+      draft.positions.page = 1;
+    }
+    draft.positions.loading = true;
+    draft.positions.error = null;
+  });
+
+  const queryString = buildPositionsQueryParams();
+
+  try {
+    const result = await getJson(
+      `/api/v1/portfolios/${state.portfolioId}/positions?${queryString}`
+    );
+    if (requestToken !== positionsRequestToken) {
+      return;
+    }
+    updateState((draft) => {
+      draft.positions.items = Array.isArray(result?.items)
+        ? result.items.map((item) => ({ ...item }))
+        : [];
+      draft.positions.total = toPositiveInteger(result?.total) || 0;
+      draft.positions.page = toPositiveInteger(result?.page) || draft.positions.page;
+      const serverPageSize =
+        toPositiveInteger(result?.page_size ?? result?.pageSize) || draft.positions.pageSize;
+      draft.positions.pageSize = serverPageSize;
+      draft.positions.loading = false;
+      draft.positions.error = null;
+    });
+  } catch (error) {
+    if (requestToken !== positionsRequestToken) {
+      return;
+    }
+    updateState((draft) => {
+      draft.positions.loading = false;
+      draft.positions.error = {
+        message: error?.message || "Unable to load positions",
+        status: error?.status,
+      };
+    });
+  }
+}
+
+export function setPositionsPage(page) {
+  const nextPage = toPositiveInteger(page);
+  if (!nextPage || nextPage === state.positions.page) {
+    return;
+  }
+  updateState((draft) => {
+    draft.positions.page = nextPage;
+  });
+  refreshPositions();
+}
+
+export function setPositionsPageSize(pageSize) {
+  const nextSize = Math.min(toPositiveInteger(pageSize) || state.positions.pageSize, 200);
+  if (!nextSize || nextSize === state.positions.pageSize) {
+    return;
+  }
+  updateState((draft) => {
+    draft.positions.pageSize = nextSize;
+    draft.positions.page = 1;
+  });
+  refreshPositions();
+}
+
+export function setPositionsSort(sort, direction) {
+  const normalizedSort = normalizeSortField(sort);
+  if (!normalizedSort) {
+    return;
+  }
+
+  let nextDirection = normalizeSortDirection(direction);
+  if (!nextDirection) {
+    if (normalizedSort === state.positions.sort) {
+      nextDirection = state.positions.direction === "asc" ? "desc" : "asc";
+    } else {
+      nextDirection = "asc";
+    }
+  }
+
+  if (
+    normalizedSort === state.positions.sort &&
+    nextDirection === state.positions.direction
+  ) {
+    return;
+  }
+
+  updateState((draft) => {
+    draft.positions.sort = normalizedSort;
+    draft.positions.direction = nextDirection;
+    draft.positions.page = 1;
+  });
+  refreshPositions();
+}
+
+export function setPositionsFilters({ currency, side } = {}) {
+  const normalizedCurrency = normalizeCurrencyFilter(currency);
+  const normalizedSide = normalizeSideFilter(side);
+
+  if (
+    normalizedCurrency === state.positions.currency &&
+    normalizedSide === state.positions.side
+  ) {
+    return;
+  }
+
+  updateState((draft) => {
+    draft.positions.currency = normalizedCurrency;
+    draft.positions.side = normalizedSide;
+    draft.positions.page = 1;
+  });
+  refreshPositions({ resetPage: true });
+}
+
+export function clearPositionsFilters() {
+  setPositionsFilters({ currency: "", side: "" });
 }
 
 function updateState(mutator) {
@@ -175,6 +334,7 @@ function updateState(mutator) {
     exposure: cloneExposureChartData(draft.charts?.exposure),
     timeline: cloneTimelineChartData(draft.charts?.timeline),
   };
+  state.positions = clonePositionsState(draft.positions);
   notify();
 }
 
@@ -203,6 +363,7 @@ function cloneState() {
       loading: state.refresh.loading,
       error: state.refresh.error ? { ...state.refresh.error } : null,
     },
+    positions: clonePositionsState(state.positions),
     charts: {
       exposure: cloneExposureChartData(state.charts.exposure),
       timeline: cloneTimelineChartData(state.charts.timeline),
@@ -348,5 +509,100 @@ function normalizeDateString(value) {
   } catch {
     return null;
   }
+}
+
+function clonePositionsState(source) {
+  const base = source || POSITIONS_DEFAULTS;
+  return {
+    items: Array.isArray(base.items) ? base.items.map((item) => ({ ...item })) : [],
+    total: toPositiveInteger(base.total),
+    page: toPositiveInteger(base.page) || POSITIONS_DEFAULTS.page,
+    pageSize: Math.min(toPositiveInteger(base.pageSize) || POSITIONS_DEFAULTS.pageSize, 200),
+    currency: normalizeCurrencyFilter(base.currency),
+    side: normalizeSideFilter(base.side),
+    sort: normalizeSortField(base.sort) || POSITIONS_DEFAULTS.sort,
+    direction: normalizeSortDirection(base.direction) || POSITIONS_DEFAULTS.direction,
+    loading: Boolean(base.loading),
+    error: base.error ? { ...base.error } : null,
+  };
+}
+
+function buildPositionsQueryParams() {
+  const params = new URLSearchParams({
+    page: String(state.positions.page),
+    page_size: String(state.positions.pageSize),
+    sort: state.positions.sort || POSITIONS_DEFAULTS.sort,
+    direction: state.positions.direction || POSITIONS_DEFAULTS.direction,
+  });
+
+  if (state.positions.currency) {
+    params.set("currency", state.positions.currency);
+  }
+  if (state.positions.side) {
+    params.set("side", state.positions.side);
+  }
+
+  return params.toString();
+}
+
+function normalizeSortField(value) {
+  if (!value) {
+    return null;
+  }
+  const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (normalized === "createdat") {
+    return "created_at";
+  }
+  if (POSITION_SORT_FIELDS.includes(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeSortDirection(value) {
+  if (!value) {
+    return null;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (POSITION_DIRECTION_VALUES.includes(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeCurrencyFilter(value) {
+  if (!value) {
+    return "";
+  }
+  const normalized = String(value).trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
+function normalizeSideFilter(value) {
+  if (!value) {
+    return "";
+  }
+  const normalized = String(value).trim().toUpperCase();
+  if (POSITION_SIDE_VALUES.includes(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
+function toPositiveInteger(value) {
+  if (value === 0) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  if (numeric <= 0) {
+    return 0;
+  }
+  return Math.floor(numeric);
 }
 
