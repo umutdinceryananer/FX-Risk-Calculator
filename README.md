@@ -13,7 +13,7 @@ blueprints.
    ```
 2. Install dependencies:
    ```bash
-   pip install Flask python-dotenv pytest
+   pip install -r requirements.txt
    ```
 3. Copy the sample environment file and adjust values as needed:
    ```bash

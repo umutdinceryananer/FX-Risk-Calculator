@@ -550,7 +550,7 @@ Automate code quality for Python and frontend.
 
 # Issue 32: Structured JSON logging & request correlation
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -592,7 +592,7 @@ Add JSON logging with `request_id`, `duration_ms`, and basic provider timing.
 
 # Issue 31: CORS & refresh rate-limit
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

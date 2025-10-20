@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from flask import Flask, redirect, url_for
 from flask_smorest import Api
 
 from config import get_config
@@ -26,6 +26,7 @@ def create_app(config_name: str | None = None) -> Flask:
     api = _register_extensions(app)
     _register_blueprints(app, api)
     _register_error_handlers(app)
+    _register_root_route(app)
 
     register_cli(app)
     return app
@@ -80,6 +81,12 @@ def _register_blueprints(app: Flask, api: Api) -> None:
     api.register_blueprint(metrics_blp, url_prefix="/api/v1/metrics")
     app.register_blueprint(frontend_blp)
     app.register_blueprint(rates_bp, url_prefix="/rates")
+
+
+def _register_root_route(app: Flask) -> None:
+    @app.route("/")
+    def _redirect_to_frontend():
+        return redirect(url_for("frontend.serve_frontend", resource_path="index.html"))
 
 
 def _register_error_handlers(app: Flask) -> None:
