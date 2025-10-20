@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fx
+      POSTGRES_PASSWORD: fxpass
+      POSTGRES_DB: fx
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - fx-net
+
+  backend:
+    build:
+      context: .
+    command: python run.py
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      FLASK_RUN_HOST: 0.0.0.0
+      DATABASE_URL: postgresql+psycopg2://fx:fxpass@db:5432/fx
+      FX_RATE_PROVIDER: mock
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    volumes:
+      - ./:/app
+    networks:
+      - fx-net
+
+networks:
+  fx-net:
+    driver: bridge
+
+volumes:
+  db-data:
