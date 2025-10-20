@@ -8,6 +8,7 @@ import {
   setPositionsPage,
   setPositionsPageSize,
 } from "../state.js";
+import { showToast } from "../ui/toast.js";
 
 const FILTER_DEBOUNCE_MS = 250;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -35,7 +36,7 @@ export function renderPortfolioView(root) {
   let filterTimer = null;
   let currentPositions = normalizePositions(getState()?.positions);
 
-  const unsubscribe = subscribe((stateSnapshot) => {
+  const unsubscribe = subscribe((stateSnapshot, meta) => {
     const positions = normalizePositions(stateSnapshot?.positions);
     currentPositions = positions;
     syncFilterControls(elements, positions);
@@ -43,6 +44,14 @@ export function renderPortfolioView(root) {
     toggleEmptyState(elements.emptyState, positions);
     updateSortIndicators(elements.sortButtons, positions);
     renderPaginationControls(elements, positions);
+
+    if (meta?.type === "positions_error" && positions.error) {
+      showToast({
+        title: "Positions unavailable",
+        message: positions.error.message ?? "Unable to load positions.",
+        variant: "danger",
+      });
+    }
   });
 
   const onCurrencyInput = (event) => {

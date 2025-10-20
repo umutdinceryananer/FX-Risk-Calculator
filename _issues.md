@@ -718,7 +718,7 @@ Enforce UTC for storage and consistent display formatting.
 
 # Issue 28: Unpriced policy & error handling
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

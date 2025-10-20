@@ -81,7 +81,7 @@ export function getState() {
 
 export function subscribe(listener) {
   subscribers.add(listener);
-  listener(getState());
+  listener(getState(), { type: "init" });
   return () => subscribers.delete(listener);
 }
 
@@ -243,13 +243,16 @@ export async function refreshPositions({ resetPage = false } = {}) {
     if (requestToken !== positionsRequestToken) {
       return;
     }
-    updateState((draft) => {
-      draft.positions.loading = false;
-      draft.positions.error = {
-        message: error?.message || "Unable to load positions",
-        status: error?.status,
-      };
-    });
+    updateState(
+      (draft) => {
+        draft.positions.loading = false;
+        draft.positions.error = {
+          message: error?.message || "Unable to load positions",
+          status: error?.status,
+        };
+      },
+      { type: "positions_error" }
+    );
   }
 }
 
@@ -329,7 +332,7 @@ export function clearPositionsFilters() {
   setPositionsFilters({ currency: "", side: "" });
 }
 
-function updateState(mutator) {
+function updateState(mutator, meta) {
   const draft = cloneState();
   mutator(draft);
   state.viewBase = draft.viewBase;
@@ -342,12 +345,13 @@ function updateState(mutator) {
     timeline: cloneTimelineChartData(draft.charts?.timeline),
   };
   state.positions = clonePositionsState(draft.positions);
-  notify();
+  notify(meta);
 }
 
-function notify() {
+function notify(payload) {
+  const meta = payload ?? { type: "update" };
   const snapshot = cloneState();
-  subscribers.forEach((listener) => listener(snapshot));
+  subscribers.forEach((listener) => listener(snapshot, meta));
 }
 
 function cloneState() {
@@ -612,4 +616,6 @@ function toPositiveInteger(value) {
   }
   return Math.floor(numeric);
 }
+
+
 
