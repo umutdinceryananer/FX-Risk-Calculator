@@ -804,7 +804,7 @@ Interactive table for positions with currency/type filters, sort, and pagination
 
 # Issue 26: Value timeline (30-day)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

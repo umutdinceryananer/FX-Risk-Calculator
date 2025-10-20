@@ -91,6 +91,33 @@ def test_list_positions_supports_filters(client, portfolio):
     assert short_payload["items"][0]["side"] == "SHORT"
 
 
+def test_list_positions_supports_sorting(client, portfolio):
+    _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "10"})
+    largest = _create_position(client, portfolio["id"], {"currency_code": "GBP", "amount": "25", "side": "SHORT"})
+    _create_position(client, portfolio["id"], {"currency_code": "AUD", "amount": "7"})
+
+    response = client.get(
+        f"/api/v1/portfolios/{portfolio['id']}/positions?sort=amount&direction=desc&page_size=5"
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    amounts = [Decimal(item["amount"]) for item in payload["items"]]
+    assert amounts == sorted(amounts, reverse=True)
+    assert payload["items"][0]["currency_code"] == largest["currency_code"]
+
+    currency_sorted = client.get(
+        f"/api/v1/portfolios/{portfolio['id']}/positions?sort=currency&direction=asc&page_size=5"
+    ).get_json()["items"]
+    currencies = [item["currency_code"] for item in currency_sorted]
+    assert currencies == sorted(currencies)
+
+
+def test_list_positions_rejects_invalid_sort(client, portfolio):
+    _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "10"})
+    response = client.get(f"/api/v1/portfolios/{portfolio['id']}/positions?sort=invalid")
+    assert response.status_code == 422
+
+
 def test_get_position_returns_404_for_wrong_portfolio(client, portfolio):
     created = _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "10"})
 

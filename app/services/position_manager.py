@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Union
 
-from sqlalchemy import asc
+from sqlalchemy import asc, desc
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_session
@@ -56,6 +56,8 @@ class PositionListParams:
     page_size: int = 25
     currency: Optional[str] = None
     side: Optional[Union[PositionType, str]] = None
+    sort: str = "created_at"
+    direction: str = "asc"
 
 
 @dataclass(frozen=True)
@@ -85,9 +87,13 @@ def list_positions(params: PositionListParams) -> PositionListResult:
         query = query.filter(Position.side == normalized_side)
 
     total = query.count()
+    sort_column = _resolve_sort_column(params.sort)
+    order_direction = params.direction.lower()
+    order_clause = asc(sort_column) if order_direction == "asc" else desc(sort_column)
+
     offset = (params.page - 1) * params.page_size
     records = (
-        query.order_by(asc(Position.id))
+        query.order_by(order_clause, asc(Position.id))
         .offset(offset)
         .limit(params.page_size)
         .all()
@@ -239,3 +245,16 @@ def _normalize_side(
 def _raise_integrity_error(exc: IntegrityError) -> None:
     message = str(getattr(exc, "orig", exc))
     raise APIError("Unable to process position request.", status_code=400) from exc
+
+
+def _resolve_sort_column(value: str):
+    normalized = (value or "").strip().lower()
+    if normalized == "currency":
+        return Position.currency_code
+    if normalized == "amount":
+        return Position.amount
+    if normalized == "side":
+        return Position.side
+    if normalized == "created_at":
+        return Position.created_at
+    return Position.created_at

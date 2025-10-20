@@ -48,6 +48,8 @@ class PositionCollection(MethodView):
             page_size=query_params["page_size"],
             currency=query_params.get("currency"),
             side=query_params.get("side"),
+            sort=query_params.get("sort"),
+            direction=query_params.get("direction"),
         )
         result = list_positions(params)
         return {

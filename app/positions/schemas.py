@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from marshmallow import Schema, ValidationError, fields, validates, validates_schema
-from marshmallow.validate import Length, Range
+from marshmallow.validate import Length, OneOf, Range
 
 from app.models import PositionType
 
@@ -122,6 +122,14 @@ class PositionListQuerySchema(Schema):
     page_size = fields.Integer(load_default=25, data_key="page_size", validate=Range(min=1, max=200))
     currency = fields.String(load_default=None, validate=Length(equal=3))
     side = fields.String(load_default=None)
+    sort = fields.String(
+        load_default="created_at",
+        validate=OneOf(["currency", "amount", "side", "created_at"]),
+    )
+    direction = fields.String(
+        load_default="asc",
+        validate=OneOf(["asc", "desc"]),
+    )
 
     @validates("side")
     def validate_side(self, value, **kwargs):
