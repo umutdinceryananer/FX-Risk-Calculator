@@ -19,7 +19,14 @@ blueprints.
    ```bash
    copy .env.example .env
    ```
-4. Run the development server:
+4. (Optional) Install frontend tooling for lint/format:
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+   This enables `npm run lint` / `npm run format` for the SPA source.
+5. Run the development server:
    ```bash
    python run.py
    ```

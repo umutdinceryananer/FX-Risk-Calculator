@@ -15,6 +15,7 @@ venv/
 build/
 dist/
 *.egg-info/
+frontend/node_modules/
 
 # IDE / editor settings
 .vscode/
