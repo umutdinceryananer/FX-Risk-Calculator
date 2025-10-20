@@ -762,7 +762,7 @@ Clear user experience for positions without available rates and API errors.
 
 # Issue 27: Positions grid (filter + sort + pagination)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

@@ -94,6 +94,7 @@ def test_exposure_default_base(client, seeded_portfolio):
     assert Decimal(exposures["JPY"]["base_equivalent"]).quantize(Decimal("0.000000000001")) == Decimal("8.333333333333")
     assert payload["priced"] == 4
     assert payload["unpriced"] == 0
+    assert payload["unpriced_reasons"] == {}
 
 
 def test_exposure_with_custom_base_and_topn(client, seeded_portfolio):
@@ -106,6 +107,7 @@ def test_exposure_with_custom_base_and_topn(client, seeded_portfolio):
     codes = [item["currency_code"] for item in exposures]
     assert len(exposures) == 3
     assert codes.count("OTHER") == 1
+    assert payload["unpriced_reasons"] == {}
 
 
 def test_exposure_missing_rates(client, app, seeded_portfolio):
@@ -121,8 +123,25 @@ def test_exposure_missing_rates(client, app, seeded_portfolio):
     assert payload["unpriced"] == 4
     assert payload["exposures"] == []
     assert payload["as_of"] is None
+    reasons = payload["unpriced_reasons"]
+    assert "missing_rate" in reasons
+    assert set(reasons["missing_rate"]) == {"USD", "EUR", "GBP", "JPY"}
 
 
 def test_exposure_missing_portfolio(client):
     response = client.get("/api/v1/metrics/portfolio/999/exposure")
     assert response.status_code == 404
+
+
+def test_exposure_unknown_currency_reason(client, app, seeded_portfolio):
+    with app.app_context():
+        session = get_session()
+        session.query(Position).filter(Position.currency_code == "JPY").update({"currency_code": "ZZZ"})
+        session.commit()
+
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/exposure")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["unpriced"] == 1
+    reasons = payload["unpriced_reasons"]
+    assert set(reasons.get("unknown_currency", [])) == {"ZZZ"}

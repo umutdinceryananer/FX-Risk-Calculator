@@ -13,6 +13,12 @@ class PortfolioValueResponseSchema(Schema):
     priced = fields.Integer(required=True)
     unpriced = fields.Integer(required=True)
     as_of = fields.DateTime(allow_none=True, data_key="as_of")
+    unpriced_reasons = fields.Dict(
+        keys=fields.String(),
+        values=fields.List(fields.String()),
+        required=True,
+        data_key="unpriced_reasons",
+    )
 
 
 class PortfolioExposureQuerySchema(Schema):
@@ -34,6 +40,12 @@ class PortfolioExposureResponseSchema(Schema):
     priced = fields.Integer(required=True)
     unpriced = fields.Integer(required=True)
     as_of = fields.DateTime(allow_none=True, data_key="as_of")
+    unpriced_reasons = fields.Dict(
+        keys=fields.String(),
+        values=fields.List(fields.String()),
+        required=True,
+        data_key="unpriced_reasons",
+    )
 
 
 class PortfolioDailyPnLQuerySchema(Schema):
@@ -54,6 +66,18 @@ class PortfolioDailyPnLResponseSchema(Schema):
     unpriced_current = fields.Integer(required=True, data_key="unpriced_current")
     priced_previous = fields.Integer(required=True, data_key="priced_previous")
     unpriced_previous = fields.Integer(required=True, data_key="unpriced_previous")
+    unpriced_current_reasons = fields.Dict(
+        keys=fields.String(),
+        values=fields.List(fields.String()),
+        required=True,
+        data_key="unpriced_current_reasons",
+    )
+    unpriced_previous_reasons = fields.Dict(
+        keys=fields.String(),
+        values=fields.List(fields.String()),
+        required=True,
+        data_key="unpriced_previous_reasons",
+    )
 
 
 class PortfolioWhatIfQuerySchema(Schema):

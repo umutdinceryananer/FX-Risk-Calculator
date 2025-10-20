@@ -46,6 +46,7 @@ class PortfolioValue(MethodView):
             "priced": result.priced,
             "unpriced": result.unpriced,
             "as_of": result.as_of,
+            "unpriced_reasons": result.unpriced_reasons,
         }
 
 
@@ -77,6 +78,7 @@ class PortfolioExposure(MethodView):
             "priced": result.priced,
             "unpriced": result.unpriced,
             "as_of": result.as_of,
+            "unpriced_reasons": result.unpriced_reasons,
         }
 
 
@@ -104,6 +106,8 @@ class PortfolioDailyPnL(MethodView):
             "unpriced_current": result.unpriced_current,
             "priced_previous": result.priced_previous,
             "unpriced_previous": result.unpriced_previous,
+            "unpriced_current_reasons": result.unpriced_reasons_current,
+            "unpriced_previous_reasons": result.unpriced_reasons_previous,
         }
 
 

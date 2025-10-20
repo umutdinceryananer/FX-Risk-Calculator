@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, date
 from decimal import Decimal, localcontext
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import DefaultDict, Dict, List, Mapping, Optional, Set, Tuple
 
 from flask import current_app
 from sqlalchemy import desc
@@ -23,6 +24,13 @@ from app.services.fx_conversion import (
     to_decimal,
 )
 from app.validation import validate_currency_code
+from app.services.currency_registry import registry
+
+
+UNPRICED_REASON_MISSING_RATE = "missing_rate"
+UNPRICED_REASON_UNKNOWN_CURRENCY = "unknown_currency"
+
+
 
 
 @dataclass(frozen=True)
@@ -35,6 +43,7 @@ class PortfolioValueResult:
     value: Decimal
     priced: int
     unpriced: int
+    unpriced_reasons: Dict[str, List[str]]
     as_of: Optional[datetime]
 
 
@@ -77,6 +86,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
             value=Decimal("0"),
             priced=0,
             unpriced=0,
+            unpriced_reasons={},
             as_of=None,
         )
 
@@ -84,6 +94,9 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
     rates_map, as_of = _latest_rates(session, canonical_base)
 
     if as_of is None or not rates_map:
+        reason_map = _init_reason_map()
+        for position in positions:
+            _add_reason(reason_map, UNPRICED_REASON_MISSING_RATE, position.currency_code)
         return PortfolioValueResult(
             portfolio_id=portfolio.id,
             portfolio_base=portfolio_base,
@@ -91,31 +104,17 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
             value=Decimal("0"),
             priced=0,
             unpriced=len(positions),
+            unpriced_reasons=_serialize_reason_map(reason_map),
             as_of=None,
         )
 
     effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
 
-    priced = 0
-    unpriced = 0
-    total = Decimal("0")
-    context = get_decimal_context()
-    with localcontext(context):
-        for position in positions:
-            try:
-                converted = convert_position_amount(
-                    native_amount=position.amount,
-                    position_currency=position.currency_code,
-                    portfolio_base=resolved_view_base,
-                    rate_lookup=effective_rates,
-                    side=position.side.value,
-                )
-            except RebaseError:
-                unpriced += 1
-                continue
-
-            priced += 1
-            total += converted
+    total, priced, unpriced, reason_map = _portfolio_value_from_rates(
+        positions,
+        resolved_view_base,
+        effective_rates,
+    )
 
     return PortfolioValueResult(
         portfolio_id=portfolio.id,
@@ -124,6 +123,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
         value=total,
         priced=priced,
         unpriced=unpriced,
+        unpriced_reasons=_serialize_reason_map(reason_map),
         as_of=as_of,
     )
 
@@ -189,6 +189,30 @@ def _rates_in_view_base(
     return base_per_unit
 
 
+def _init_reason_map() -> DefaultDict[str, Set[str]]:
+    return defaultdict(set)
+
+
+def _add_reason(
+    reason_map: DefaultDict[str, Set[str]],
+    reason: str,
+    currency_code: Optional[str],
+) -> None:
+    if not currency_code:
+        return
+    normalized = str(currency_code).strip().upper()
+    if normalized:
+        reason_map[reason].add(normalized)
+
+
+def _serialize_reason_map(reason_map: Mapping[str, Set[str]]) -> Dict[str, List[str]]:
+    return {
+        reason: sorted(codes)
+        for reason, codes in reason_map.items()
+        if codes
+    }
+
+
 @dataclass(frozen=True)
 class CurrencyExposure:
     currency_code: str
@@ -205,6 +229,7 @@ class PortfolioExposureResult:
     priced: int
     unpriced: int
     as_of: Optional[datetime]
+    unpriced_reasons: Dict[str, List[str]]
 
 
 def calculate_currency_exposure(
@@ -236,12 +261,17 @@ def calculate_currency_exposure(
             priced=0,
             unpriced=0,
             as_of=None,
+            unpriced_reasons={},
         )
 
     canonical_base = normalize_currency(current_app.config.get("FX_CANONICAL_BASE", "USD"))
     rates_map, as_of = _latest_rates(session, canonical_base)
 
+    reason_map = _init_reason_map()
+
     if as_of is None or not rates_map:
+        for position in positions:
+            _add_reason(reason_map, UNPRICED_REASON_MISSING_RATE, position.currency_code)
         return PortfolioExposureResult(
             portfolio_id=portfolio_id,
             portfolio_base=portfolio_base,
@@ -250,6 +280,7 @@ def calculate_currency_exposure(
             priced=0,
             unpriced=len(positions),
             as_of=None,
+            unpriced_reasons=_serialize_reason_map(reason_map),
         )
 
     effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
@@ -260,7 +291,19 @@ def calculate_currency_exposure(
     context = get_decimal_context()
     with localcontext(context):
         for position in positions:
-            currency = normalize_currency(position.currency_code)
+            try:
+                currency = normalize_currency(position.currency_code)
+            except ValueError:
+                currency = str(position.currency_code).strip().upper()
+                unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_UNKNOWN_CURRENCY, currency)
+                continue
+
+            if not registry.is_allowed(currency):
+                unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_UNKNOWN_CURRENCY, currency)
+                continue
+
             try:
                 base_equiv = convert_position_amount(
                     native_amount=position.amount,
@@ -271,6 +314,7 @@ def calculate_currency_exposure(
                 )
             except RebaseError:
                 unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_MISSING_RATE, currency)
                 continue
 
             priced += 1
@@ -310,6 +354,7 @@ def calculate_currency_exposure(
         priced=priced,
         unpriced=unpriced,
         as_of=as_of,
+        unpriced_reasons=_serialize_reason_map(reason_map),
     )
 
 
@@ -328,6 +373,8 @@ class PortfolioDailyPnLResult:
     unpriced_current: int
     priced_previous: int
     unpriced_previous: int
+    unpriced_reasons_current: Dict[str, List[str]]
+    unpriced_reasons_previous: Dict[str, List[str]]
 
 
 @dataclass(frozen=True)
@@ -378,13 +425,21 @@ def calculate_daily_pnl(
             unpriced_current=0,
             priced_previous=0,
             unpriced_previous=0,
+            unpriced_reasons_current={},
+            unpriced_reasons_previous={},
         )
 
     canonical_base = normalize_currency(current_app.config.get("FX_CANONICAL_BASE", "USD"))
     latest_timestamp, previous_timestamp = _latest_two_timestamps(session, canonical_base)
 
+    reason_map_current = _init_reason_map()
+    reason_map_previous = _init_reason_map()
+
     if latest_timestamp is None or previous_timestamp is None:
         zero = Decimal("0")
+        for position in positions:
+            _add_reason(reason_map_current, UNPRICED_REASON_MISSING_RATE, position.currency_code)
+            _add_reason(reason_map_previous, UNPRICED_REASON_MISSING_RATE, position.currency_code)
         return PortfolioDailyPnLResult(
             portfolio_id=portfolio_id,
             portfolio_base=portfolio_base,
@@ -399,6 +454,8 @@ def calculate_daily_pnl(
             unpriced_current=len(positions),
             priced_previous=0,
             unpriced_previous=len(positions),
+            unpriced_reasons_current=_serialize_reason_map(reason_map_current),
+            unpriced_reasons_previous=_serialize_reason_map(reason_map_previous),
         )
 
     latest_rates = _rates_for_timestamp(session, canonical_base, latest_timestamp)
@@ -406,6 +463,9 @@ def calculate_daily_pnl(
 
     if not latest_rates or not previous_rates:
         zero = Decimal("0")
+        for position in positions:
+            _add_reason(reason_map_current, UNPRICED_REASON_MISSING_RATE, position.currency_code)
+            _add_reason(reason_map_previous, UNPRICED_REASON_MISSING_RATE, position.currency_code)
         return PortfolioDailyPnLResult(
             portfolio_id=portfolio_id,
             portfolio_base=portfolio_base,
@@ -420,17 +480,19 @@ def calculate_daily_pnl(
             unpriced_current=len(positions),
             priced_previous=0,
             unpriced_previous=len(positions),
+            unpriced_reasons_current=_serialize_reason_map(reason_map_current),
+            unpriced_reasons_previous=_serialize_reason_map(reason_map_previous),
         )
 
     effective_latest = _rates_in_view_base(latest_rates, canonical_base, resolved_view_base)
     effective_previous = _rates_in_view_base(previous_rates, canonical_base, resolved_view_base)
 
-    value_current, priced_current, unpriced_current = _portfolio_value_from_rates(
+    value_current, priced_current, unpriced_current, reason_map_current = _portfolio_value_from_rates(
         positions,
         resolved_view_base,
         effective_latest,
     )
-    value_previous, priced_previous, unpriced_previous = _portfolio_value_from_rates(
+    value_previous, priced_previous, unpriced_previous, reason_map_previous = _portfolio_value_from_rates(
         positions,
         resolved_view_base,
         effective_previous,
@@ -452,6 +514,8 @@ def calculate_daily_pnl(
         unpriced_current=unpriced_current,
         priced_previous=priced_previous,
         unpriced_previous=unpriced_previous,
+        unpriced_reasons_current=_serialize_reason_map(reason_map_current),
+        unpriced_reasons_previous=_serialize_reason_map(reason_map_previous),
     )
 
 
@@ -507,7 +571,7 @@ def calculate_portfolio_value_series(
             continue
 
         effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
-        value, priced, _ = _portfolio_value_from_rates(
+        value, priced, _, _ = _portfolio_value_from_rates(
             positions,
             resolved_view_base,
             effective_rates,
@@ -583,7 +647,7 @@ def simulate_currency_shock(
 
     effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
 
-    current_value, priced, unpriced = _portfolio_value_from_rates(
+    current_value, priced, unpriced, reason_map_current = _portfolio_value_from_rates(
         positions,
         resolved_view_base,
         effective_rates,
@@ -592,7 +656,10 @@ def simulate_currency_shock(
     if unpriced > 0:
         raise ValidationError(
             "Unable to price all positions with current FX rates.",
-            payload={"unpriced_positions": unpriced},
+            payload={
+                "unpriced_positions": unpriced,
+                "reasons": _serialize_reason_map(reason_map_current),
+            },
         )
 
     base_rate = effective_rates.get(shocked_currency)
@@ -608,7 +675,7 @@ def simulate_currency_shock(
         shock_factor,
     )
 
-    new_value, priced_new, unpriced_new = _portfolio_value_from_rates(
+    new_value, priced_new, unpriced_new, reason_map_new = _portfolio_value_from_rates(
         positions,
         resolved_view_base,
         shocked_rates,
@@ -617,7 +684,10 @@ def simulate_currency_shock(
     if unpriced_new > 0:
         raise ValidationError(
             "Unable to price all positions with shocked FX rates.",
-            payload={"unpriced_positions": unpriced_new},
+            payload={
+                "unpriced_positions": unpriced_new,
+                "reasons": _serialize_reason_map(reason_map_new),
+            },
         )
 
     with localcontext(context):
@@ -675,27 +745,43 @@ def _portfolio_value_from_rates(
     positions: List[Position],
     view_base: str,
     rate_lookup: Dict[str, Decimal],
-) -> Tuple[Decimal, int, int]:
+) -> Tuple[Decimal, int, int, DefaultDict[str, Set[str]]]:
     total = Decimal("0")
     priced = 0
     unpriced = 0
+    reason_map = _init_reason_map()
     context = get_decimal_context()
     with localcontext(context):
         for position in positions:
             try:
+                normalized_currency = normalize_currency(position.currency_code)
+            except ValueError:
+                normalized_currency = str(position.currency_code).strip().upper()
+                unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_UNKNOWN_CURRENCY, normalized_currency)
+                continue
+
+            if not registry.is_allowed(normalized_currency):
+                unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_UNKNOWN_CURRENCY, normalized_currency)
+                continue
+
+            try:
                 converted = convert_position_amount(
                     native_amount=position.amount,
-                    position_currency=position.currency_code,
+                    position_currency=normalized_currency,
                     portfolio_base=view_base,
                     rate_lookup=rate_lookup,
                     side=position.side.value,
                 )
             except RebaseError:
                 unpriced += 1
+                _add_reason(reason_map, UNPRICED_REASON_MISSING_RATE, normalized_currency)
                 continue
+
             priced += 1
             total += converted
-    return total, priced, unpriced
+    return total, priced, unpriced, reason_map
 
 
 def _recent_daily_timestamps(session, canonical_base: str, days: int) -> List[datetime]:

@@ -77,6 +77,7 @@ def test_portfolio_value_default_base(client, seeded_portfolio):
     assert payload["unpriced"] == 0
     assert Decimal(payload["value"]) == Decimal("250")
     assert payload["as_of"] is not None
+    assert payload["unpriced_reasons"] == {}
 
 
 def test_portfolio_value_with_custom_base(client, seeded_portfolio):
@@ -86,6 +87,7 @@ def test_portfolio_value_with_custom_base(client, seeded_portfolio):
     assert payload["view_base"] == "EUR"
     # USD 100 -> EUR 80, EUR 200 -> EUR 200, GBP short 50 -> rate 0.5 => USD -25 -> EUR -20
     assert Decimal(payload["value"]) == Decimal("200")
+    assert payload["unpriced_reasons"] == {}
 
 
 def test_portfolio_value_handles_missing_rates(client, app, seeded_portfolio):
@@ -101,8 +103,25 @@ def test_portfolio_value_handles_missing_rates(client, app, seeded_portfolio):
     assert payload["unpriced"] == 3
     assert payload["value"] == "0"
     assert payload["as_of"] is None
+    reasons = payload["unpriced_reasons"]
+    assert "missing_rate" in reasons
+    assert set(reasons["missing_rate"]) == {"USD", "EUR", "GBP"}
 
 
 def test_portfolio_value_returns_404_for_missing_portfolio(client):
     response = client.get("/api/v1/metrics/portfolio/999/value")
     assert response.status_code == 404
+
+
+def test_portfolio_value_flags_unknown_currency(client, app, seeded_portfolio):
+    with app.app_context():
+        session = get_session()
+        session.query(Position).filter(Position.currency_code == "GBP").update({"currency_code": "ZZZ"})
+        session.commit()
+
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/value")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["unpriced"] == 1
+    reasons = payload["unpriced_reasons"]
+    assert set(reasons.get("unknown_currency", [])) == {"ZZZ"}
