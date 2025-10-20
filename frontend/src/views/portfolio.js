@@ -9,6 +9,8 @@ import {
   setPositionsPageSize,
 } from "../state.js";
 import { showToast } from "../ui/toast.js";
+import { formatDateTimeLocal } from "../utils/datetime.js";
+import { formatNativeAmount } from "../utils/numeral.js";
 
 const FILTER_DEBOUNCE_MS = 250;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -375,7 +377,7 @@ function renderPositionsTable(tbody, positions) {
 
 function renderPositionRow(item) {
   const currency = escapeHtml(item?.currency_code || "--");
-  const amount = formatAmount(item?.amount);
+  const amount = formatNativeAmount(item?.amount);
   const side = (item?.side || "").toUpperCase();
   const sideContent = side
     ? `<span class="badge ${side === "SHORT" ? "text-bg-danger" : "text-bg-success"} positions-side-badge">${escapeHtml(side)}</span>`
@@ -478,15 +480,6 @@ function computeTotalPages(positions) {
   }
   const pageSize = Math.max(positions.pageSize || 1, 1);
   return Math.max(1, Math.ceil(positions.total / pageSize));
-}
-
-function formatAmount(value) {
-  const numeric = Number(value);
-  const safeNumber = Number.isFinite(numeric) ? numeric : 0;
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(safeNumber);
 }
 
 function formatDateTime(value) {

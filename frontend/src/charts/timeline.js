@@ -1,3 +1,5 @@
+import { formatCurrencyAmount } from "../utils/numeral.js";
+
 let chartInstance = null;
 let currentCanvas = null;
 
@@ -80,7 +82,7 @@ function buildConfig(chartState, dataset) {
           mode: "index",
           callbacks: {
             title: (items) => (items.length ? formatFullDate(items[0].label) : ""),
-            label: (context) => formatCurrency(context.parsed.y, chartState.viewBase),
+            label: (context) => formatCurrencyAmount(context.parsed.y, chartState.viewBase),
           },
         },
       },
@@ -98,7 +100,7 @@ function buildConfig(chartState, dataset) {
         },
         y: {
           ticks: {
-            callback: (value) => formatCurrency(value, chartState.viewBase),
+            callback: (value) => formatCurrencyAmount(value, chartState.viewBase),
           },
           grid: {
             color: "rgba(148, 163, 184, 0.2)",
@@ -130,21 +132,5 @@ function formatFullDate(iso) {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return iso;
-  }
-}
-
-function formatCurrency(value, currency) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: (currency || "USD").toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(Number(value));
-  } catch {
-    const numeric = Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 });
-    return `${numeric} ${currency ?? ""}`.trim();
   }
 }

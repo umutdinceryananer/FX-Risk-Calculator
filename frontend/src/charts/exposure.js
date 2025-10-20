@@ -1,3 +1,5 @@
+import { formatCurrencyAmount, formatCurrencyNativeAmount } from "../utils/numeral.js";
+
 export const DEFAULT_EXPOSURE_TOP_N = 5;
 
 let chartInstance = null;
@@ -160,12 +162,12 @@ function buildTooltipCallbacks(meta) {
       }
 
       const lines = [
-        `Base (${meta.viewBase}): ${formatCurrency(segment.baseValue, meta.viewBase)}`,
+        `Base (${meta.viewBase}): ${formatCurrencyAmount(segment.baseValue, meta.viewBase)}`,
       ];
 
       if (segment.nativeCurrency) {
         lines.push(
-          `Native (${segment.nativeCurrency}): ${formatCurrency(segment.nativeValue, segment.nativeCurrency)}`,
+          `Native (${segment.nativeCurrency}): ${formatCurrencyNativeAmount(segment.nativeValue, segment.nativeCurrency)}`,
         );
       }
 
@@ -173,7 +175,7 @@ function buildTooltipCallbacks(meta) {
         lines.push("Breakdown:");
         segment.constituents.slice(0, 3).forEach((item) => {
           lines.push(
-            `- ${item.label}: ${formatCurrency(item.baseValue, meta.viewBase)} / Native ${formatCurrency(
+            `- ${item.label}: ${formatCurrencyAmount(item.baseValue, meta.viewBase)} / Native ${formatCurrencyNativeAmount(
               item.nativeValue,
               item.nativeCurrency,
             )}`,
@@ -187,21 +189,6 @@ function buildTooltipCallbacks(meta) {
       return lines;
     },
   };
-}
-
-function formatCurrency(value, currency) {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: (currency || "USD").toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(Number(value || 0));
-  } catch {
-    const numeric = Number(value || 0).toLocaleString("en-US", {
-      maximumFractionDigits: 2,
-    });
-    return `${numeric} ${currency ?? ""}`.trim();
-  }
 }
 
 function toNumber(value) {
