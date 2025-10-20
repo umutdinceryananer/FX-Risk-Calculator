@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Iterable, List, Mapping
 
+from app.utils.datetime import ensure_utc
+
 
 def _normalize_code(code: str) -> str:
     normalized = code.strip().upper()
@@ -34,6 +36,8 @@ class RateSnapshot:
     def __post_init__(self) -> None:
         object.__setattr__(self, "base_currency", _normalize_code(self.base_currency))
         object.__setattr__(self, "rates", _normalize_rates(self.rates))
+        normalized_timestamp = ensure_utc(self.timestamp)
+        object.__setattr__(self, "timestamp", normalized_timestamp)
         if not self.source or not self.source.strip():
             raise ValueError("source must be provided for RateSnapshot")
 
@@ -46,6 +50,8 @@ class RatePoint:
     rate: Decimal
 
     def __post_init__(self) -> None:
+        normalized_timestamp = ensure_utc(self.timestamp)
+        object.__setattr__(self, "timestamp", normalized_timestamp)
         object.__setattr__(self, "rate", Decimal(str(self.rate)))
 
 

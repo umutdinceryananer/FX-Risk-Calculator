@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -22,6 +23,28 @@ def test_rate_snapshot_normalizes_codes_and_rates():
 def test_rate_snapshot_requires_source():
     with pytest.raises(ValueError):
         RateSnapshot(base_currency="usd", source="", timestamp=datetime.now(UTC))
+
+
+def test_rate_snapshot_coerces_timestamps_to_utc():
+    naive = datetime(2025, 1, 1, 12, 30, 15)
+    snapshot = RateSnapshot(
+        base_currency="usd",
+        source="test",
+        timestamp=naive,
+        rates={},
+    )
+    assert snapshot.timestamp.tzinfo == UTC
+    assert snapshot.timestamp == naive.replace(tzinfo=UTC)
+
+    aware = datetime(2025, 1, 1, 12, 30, tzinfo=ZoneInfo("Europe/Istanbul"))
+    snapshot = RateSnapshot(
+        base_currency="usd",
+        source="test",
+        timestamp=aware,
+        rates={},
+    )
+    assert snapshot.timestamp.tzinfo == UTC
+    assert snapshot.timestamp == aware.astimezone(UTC)
 
 
 def test_rate_history_series_requires_rate_points():
@@ -45,3 +68,10 @@ def test_rate_history_series_rejects_invalid_point():
             source="provider",
             points=[{"timestamp": datetime.now(UTC), "rate": 1.0}],
         )
+
+
+def test_rate_point_coerces_timestamp_to_utc():
+    naive = datetime(2025, 2, 3, 5, 6)
+    point = RatePoint(timestamp=naive, rate=Decimal("1.23"))
+    assert point.timestamp.tzinfo == UTC
+    assert point.timestamp == naive.replace(tzinfo=UTC)
