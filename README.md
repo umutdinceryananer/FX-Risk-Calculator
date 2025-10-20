@@ -1,5 +1,7 @@
 # FX Risk Calculator
 
+![Coverage](coverage.svg)
+
 Lightweight Flask service scaffold for monitoring FX risk. The project uses an
 application factory pattern with environment-driven configuration and modular
 blueprints.
@@ -199,4 +201,5 @@ Validation rules:
 - Install git hooks once with `pre-commit install`.
 - `make lint` runs Python and frontend linters; `make format` formats code; `make typecheck` runs mypy.
 - Inside `frontend/`, you can also run `npm run lint` and `npm run format` directly.
+- Update the coverage badge with `coverage run -m pytest && coverage-badge -o coverage.svg`.
 
