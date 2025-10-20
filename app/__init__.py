@@ -9,7 +9,7 @@ from config import get_config
 from .database import init_app as init_db
 from .cli import register_cli
 from .cors import init_cors
-from .logging import setup_logging
+from .logging import setup_logging, init_request_logging
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -20,6 +20,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.config.from_object(config_class)
 
     setup_logging(app)
+    init_request_logging(app)
     init_cors(app)
     _configure_api(app)
     api = _register_extensions(app)

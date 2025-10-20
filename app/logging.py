@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+import uuid
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
+
+from flask import g, request
+from werkzeug.exceptions import HTTPException
+REQUEST_ID_HEADER = "X-Request-ID"
 
 LOGGING_CONFIG_FLAG = "_logging_configured"
 
@@ -82,12 +88,105 @@ def setup_logging(app) -> None:
     _replace_handlers(root_logger, [handler])
     root_logger.setLevel(level)
 
-    logging.getLogger("werkzeug").setLevel(level)
+    werkzeug_logger = logging.getLogger("werkzeug")
+    werkzeug_logger.setLevel(level)
+    werkzeug_logger.handlers = []
     app.logger.handlers = []
     app.logger.setLevel(level)
     app.logger.propagate = True
 
     app.config[LOGGING_CONFIG_FLAG] = True
+
+
+def init_request_logging(app) -> None:
+    """Attach request lifecycle logging with correlation IDs."""
+
+    if app.config.get("_request_logging_configured"):
+        return
+
+    @app.before_request
+    def _start_request_logging():
+        request_id = request.headers.get(REQUEST_ID_HEADER)
+        if not request_id:
+            request_id = uuid.uuid4().hex
+        g.request_id = request_id
+        g.request_start = time.perf_counter()
+        g._request_logged = False
+
+    @app.after_request
+    def _log_request(response):
+        request_id = getattr(g, "request_id", None)
+        if request_id:
+            response.headers.setdefault(REQUEST_ID_HEADER, request_id)
+
+        duration_ms = _request_duration_ms()
+        extras = _build_request_log_extra(
+            event="request.completed",
+            status=response.status_code,
+            request_id=request_id,
+            duration_ms=duration_ms,
+            error=None,
+        )
+        app.logger.info("Request handled", extra=extras)
+        g._request_logged = True
+        return response
+
+    @app.teardown_request
+    def _log_teardown(exc: Optional[BaseException]):
+        if exc is None:
+            return
+        if getattr(g, "_request_logged", False):
+            return
+
+        request_id = getattr(g, "request_id", None)
+        status = getattr(exc, "code", 500) if isinstance(exc, HTTPException) else 500
+        duration_ms = _request_duration_ms()
+        extras = _build_request_log_extra(
+            event="request.failed",
+            status=status,
+            request_id=request_id,
+            duration_ms=duration_ms,
+            error=str(exc),
+        )
+        app.logger.error("Request failed", extra=extras)
+        g._request_logged = True
+
+    app.config["_request_logging_configured"] = True
+
+
+def _request_duration_ms() -> Optional[float]:
+    start = getattr(g, "request_start", None)
+    if start is None:
+        return None
+    return (time.perf_counter() - start) * 1000
+
+
+def _build_request_log_extra(
+    *,
+    event: str,
+    status: int,
+    request_id: Optional[str],
+    duration_ms: Optional[float],
+    error: Optional[str],
+) -> dict[str, Any]:
+    route = request.url_rule.rule if request.url_rule else request.path
+    payload: dict[str, Any] = {
+        "event": event,
+        "route": route,
+        "method": request.method,
+        "status": status,
+        "duration_ms": round(duration_ms, 3) if duration_ms is not None else None,
+        "request_id": request_id,
+        "path": request.path,
+        "source": "api",
+        "stale": False,
+    }
+    if error:
+        payload["error"] = error
+    if request.remote_addr:
+        payload["client_ip"] = request.remote_addr
+
+    return {key: value for key, value in payload.items() if value is not None}
 
 
 def _extract_extras(record_dict: dict[str, Any]) -> dict[str, Any]:
