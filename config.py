@@ -26,6 +26,10 @@ class BaseConfig:
     FRANKFURTER_API_BACKOFF_SECONDS = float(os.getenv("FRANKFURTER_API_BACKOFF_SECONDS", "0.5"))
     FX_FALLBACK_PROVIDER = os.getenv("FX_FALLBACK_PROVIDER")
     FX_CANONICAL_BASE = os.getenv("FX_CANONICAL_BASE", "USD")
+    CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    CORS_ALLOWED_HEADERS = os.getenv("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")
+    CORS_ALLOWED_METHODS = os.getenv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+    CORS_MAX_AGE = int(os.getenv("CORS_MAX_AGE", "600"))
 
 
 class DevelopmentConfig(BaseConfig):

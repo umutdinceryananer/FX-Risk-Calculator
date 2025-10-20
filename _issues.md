@@ -632,7 +632,7 @@ Allow front-end origin and throttle manual refresh.
 
 # Issue 30: Rounding & numeral formatting
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

@@ -8,6 +8,7 @@ from flask_smorest import Api
 from config import get_config
 from .database import init_app as init_db
 from .cli import register_cli
+from .cors import init_cors
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -17,6 +18,7 @@ def create_app(config_name: str | None = None) -> Flask:
     config_class = get_config(config_name)
     app.config.from_object(config_class)
 
+    init_cors(app)
     _configure_api(app)
     api = _register_extensions(app)
     _register_blueprints(app, api)
