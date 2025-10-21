@@ -23,6 +23,8 @@ services:
       FLASK_RUN_HOST: 0.0.0.0
       DATABASE_URL: postgresql+psycopg2://fx:fxpass@db:5432/fx
       FX_RATE_PROVIDER: mock
+      FLASK_APP: run:create_app
+      RUN_DB_MIGRATIONS: "true"
     ports:
       - "5000:5000"
     depends_on:

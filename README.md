@@ -219,3 +219,4 @@ Validation rules:
    ```
 4. Override settings via `docker-compose.override.yml` (example included for exposing the database).
 
+5. Database migrations run automatically on container start. Set `RUN_DB_MIGRATIONS=false` to skip if needed.
