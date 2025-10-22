@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 from alembic import command
@@ -58,3 +59,34 @@ def client(app):
 
     with app.test_client() as client:
         yield client
+
+
+@pytest.fixture()
+def db_session(app) -> Iterator:
+    """Provide a database session that rolls back between tests."""
+
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.rollback()
+        SessionLocal.remove()
+
+
+@pytest.fixture(scope="session")
+def fixtures_dir() -> Path:
+    """Return the path to bundled JSON fixtures."""
+
+    return ROOT_DIR / "tests" / "fixtures"
+
+
+@pytest.fixture()
+def load_json_fixture(fixtures_dir: Path) -> Callable[[str], dict]:
+    """Load a JSON fixture by filename."""
+
+    def _loader(filename: str) -> dict:
+        path = fixtures_dir / filename
+        with path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    return _loader
