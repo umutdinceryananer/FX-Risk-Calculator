@@ -334,7 +334,7 @@ Ensure endpoints meet basic latency budgets and avoid N+1.
 
 # Issue 37: Integration test (E2E happy path)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

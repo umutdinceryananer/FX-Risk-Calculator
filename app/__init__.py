@@ -42,6 +42,8 @@ def _configure_api(app: Flask) -> None:
         "OPENAPI_SWAGGER_UI_URL",
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
     )
+    app.config.setdefault("TIMING_LOGS_ENABLED", False)
+    app.config.setdefault("TIMING_MIN_DURATION_MS", None)
 
 
 def _register_extensions(app: Flask) -> Api:
@@ -95,6 +97,3 @@ def _register_error_handlers(app: Flask) -> None:
     from .errors import register_error_handlers
 
     register_error_handlers(app)
-
-
-
