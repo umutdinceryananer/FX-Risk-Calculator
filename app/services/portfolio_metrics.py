@@ -6,10 +6,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, date
 from decimal import Decimal, localcontext
-from typing import DefaultDict, Dict, List, Mapping, Optional, Set, Tuple
+from typing import DefaultDict, Dict, Iterable, List, Mapping, Optional, Set, Tuple
 
 from flask import current_app
 from sqlalchemy import desc
+from sqlalchemy.orm import load_only
 
 from app.database import get_session
 from app.errors import APIError, ValidationError
@@ -30,8 +31,6 @@ from app.services.currency_registry import registry
 
 UNPRICED_REASON_MISSING_RATE = "missing_rate"
 UNPRICED_REASON_UNKNOWN_CURRENCY = "unknown_currency"
-
-
 
 
 @dataclass(frozen=True)
@@ -62,7 +61,20 @@ class PortfolioValueSeriesResult:
     series: List[PortfolioValueSeriesPoint]
 
 
-def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = None) -> PortfolioValueResult:
+def _fetch_positions(session, portfolio_id: int) -> List[Position]:
+    """Return portfolio positions with only the required columns loaded."""
+
+    return (
+        session.query(Position)
+        .options(load_only(Position.currency_code, Position.amount, Position.side))
+        .filter(Position.portfolio_id == portfolio_id)
+        .all()
+    )
+
+
+def calculate_portfolio_value(
+    portfolio_id: int, *, view_base: Optional[str] = None
+) -> PortfolioValueResult:
     """Compute aggregate portfolio value in the requested base currency."""
 
     session = get_session()
@@ -73,11 +85,7 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
     portfolio_base = normalize_currency(portfolio.base_currency_code)
     resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
 
-    positions = (
-        session.query(Position)
-        .filter(Position.portfolio_id == portfolio.id)
-        .all()
-    )
+    positions = _fetch_positions(session, portfolio.id)
 
     if not positions:
         return PortfolioValueResult(
@@ -130,6 +138,41 @@ def calculate_portfolio_value(portfolio_id: int, *, view_base: Optional[str] = N
     )
 
 
+def _rates_for_timestamps(
+    session,
+    canonical_base: str,
+    timestamps: Iterable[datetime],
+) -> Dict[datetime, Dict[str, Decimal]]:
+    base_code = normalize_currency(canonical_base)
+    ordered_lookup = list(dict.fromkeys(timestamps))
+    if not ordered_lookup:
+        return {}
+
+    grouped: Dict[datetime, Dict[str, Decimal]] = {
+        _to_utc_datetime(ts): {} for ts in ordered_lookup
+    }
+
+    rows = (
+        session.query(FxRate.timestamp, FxRate.target_currency_code, FxRate.rate)
+        .filter(
+            FxRate.base_currency_code == canonical_base,
+            FxRate.timestamp.in_(ordered_lookup),
+        )
+        .all()
+    )
+
+    for row_timestamp, target_code, rate in rows:
+        normalized_ts = _to_utc_datetime(row_timestamp)
+        rates = grouped.setdefault(normalized_ts, {})
+        rates[normalize_currency(target_code)] = rate
+
+    for normalized_ts, rates in grouped.items():
+        if rates:
+            rates[base_code] = Decimal("1")
+
+    return grouped
+
+
 def _latest_rates(session, canonical_base: str) -> tuple[Dict[str, Decimal], Optional[datetime]]:
     latest_timestamp: Optional[datetime] = (
         session.query(FxRate.timestamp)
@@ -142,21 +185,9 @@ def _latest_rates(session, canonical_base: str) -> tuple[Dict[str, Decimal], Opt
     if latest_timestamp is None:
         return {}, None
 
-    rows = (
-        session.query(FxRate)
-        .filter(
-            FxRate.base_currency_code == canonical_base,
-            FxRate.timestamp == latest_timestamp,
-        )
-        .all()
-    )
-
-    normalized_base = normalize_currency(canonical_base)
-    rates: Dict[str, Decimal] = {normalized_base: Decimal("1")}
-    for row in rows:
-        rates[normalize_currency(row.target_currency_code)] = row.rate
-
-    return rates, latest_timestamp
+    rates_map = _rates_for_timestamps(session, canonical_base, [latest_timestamp])
+    normalized_ts = _to_utc_datetime(latest_timestamp)
+    return rates_map.get(normalized_ts, {}), latest_timestamp
 
 
 def _rates_in_view_base(
@@ -208,11 +239,7 @@ def _add_reason(
 
 
 def _serialize_reason_map(reason_map: Mapping[str, Set[str]]) -> Dict[str, List[str]]:
-    return {
-        reason: sorted(codes)
-        for reason, codes in reason_map.items()
-        if codes
-    }
+    return {reason: sorted(codes) for reason, codes in reason_map.items() if codes}
 
 
 @dataclass(frozen=True)
@@ -245,11 +272,7 @@ def calculate_currency_exposure(
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
-    positions = (
-        session.query(Position)
-        .filter(Position.portfolio_id == portfolio_id)
-        .all()
-    )
+    positions = _fetch_positions(session, portfolio_id)
 
     portfolio_base = normalize_currency(portfolio.base_currency_code)
     resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
@@ -407,11 +430,7 @@ def calculate_daily_pnl(
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
-    positions = (
-        session.query(Position)
-        .filter(Position.portfolio_id == portfolio_id)
-        .all()
-    )
+    positions = _fetch_positions(session, portfolio_id)
 
     portfolio_base = normalize_currency(portfolio.base_currency_code)
     resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
@@ -494,20 +513,28 @@ def calculate_daily_pnl(
     effective_latest = _rates_in_view_base(latest_rates, canonical_base, resolved_view_base)
     effective_previous = _rates_in_view_base(previous_rates, canonical_base, resolved_view_base)
 
-    value_current, priced_current, unpriced_current, reason_map_current = _portfolio_value_from_rates(
-        positions,
-        resolved_view_base,
-        effective_latest,
+    value_current, priced_current, unpriced_current, reason_map_current = (
+        _portfolio_value_from_rates(
+            positions,
+            resolved_view_base,
+            effective_latest,
+        )
     )
-    value_previous, priced_previous, unpriced_previous, reason_map_previous = _portfolio_value_from_rates(
-        positions,
-        resolved_view_base,
-        effective_previous,
+    value_previous, priced_previous, unpriced_previous, reason_map_previous = (
+        _portfolio_value_from_rates(
+            positions,
+            resolved_view_base,
+            effective_previous,
+        )
     )
 
     value_current = quantize_amount(value_current)
     value_previous = quantize_amount(value_previous) if value_previous is not None else None
-    pnl = quantize_amount(value_current - value_previous) if value_previous is not None else value_current
+    pnl = (
+        quantize_amount(value_current - value_previous)
+        if value_previous is not None
+        else value_current
+    )
 
     return PortfolioDailyPnLResult(
         portfolio_id=portfolio_id,
@@ -516,8 +543,16 @@ def calculate_daily_pnl(
         pnl=pnl,
         value_current=value_current,
         value_previous=value_previous,
-        as_of=latest_timestamp.replace(tzinfo=UTC) if latest_timestamp.tzinfo is None else latest_timestamp,
-        prev_date=previous_timestamp.replace(tzinfo=UTC) if previous_timestamp.tzinfo is None else previous_timestamp,
+        as_of=(
+            latest_timestamp.replace(tzinfo=UTC)
+            if latest_timestamp.tzinfo is None
+            else latest_timestamp
+        ),
+        prev_date=(
+            previous_timestamp.replace(tzinfo=UTC)
+            if previous_timestamp.tzinfo is None
+            else previous_timestamp
+        ),
         positions_changed=False,
         priced_current=priced_current,
         unpriced_current=unpriced_current,
@@ -545,11 +580,7 @@ def calculate_portfolio_value_series(
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
-    positions = (
-        session.query(Position)
-        .filter(Position.portfolio_id == portfolio.id)
-        .all()
-    )
+    positions = _fetch_positions(session, portfolio.id)
 
     portfolio_base = normalize_currency(portfolio.base_currency_code)
     resolved_view_base = validate_currency_code(view_base or portfolio_base, field="base")
@@ -573,9 +604,12 @@ def calculate_portfolio_value_series(
             series=[],
         )
 
+    rates_by_timestamp = _rates_for_timestamps(session, canonical_base, timestamps)
+
     series: List[PortfolioValueSeriesPoint] = []
     for timestamp in timestamps:
-        rates_map = _rates_for_timestamp(session, canonical_base, timestamp)
+        normalized_timestamp = _to_utc_datetime(timestamp)
+        rates_map = rates_by_timestamp.get(normalized_timestamp)
         if not rates_map:
             continue
 
@@ -589,7 +623,7 @@ def calculate_portfolio_value_series(
         if priced == 0:
             continue
 
-        point_date = _to_utc_datetime(timestamp).date()
+        point_date = normalized_timestamp.date()
         series.append(
             PortfolioValueSeriesPoint(
                 date=point_date,
@@ -619,11 +653,7 @@ def simulate_currency_shock(
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
-    positions = (
-        session.query(Position)
-        .filter(Position.portfolio_id == portfolio_id)
-        .all()
-    )
+    positions = _fetch_positions(session, portfolio_id)
 
     if not positions:
         raise ValidationError(
@@ -715,7 +745,9 @@ def simulate_currency_shock(
     )
 
 
-def _latest_two_timestamps(session, canonical_base: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+def _latest_two_timestamps(
+    session, canonical_base: str
+) -> Tuple[Optional[datetime], Optional[datetime]]:
     rows = (
         session.query(FxRate.timestamp)
         .filter(FxRate.base_currency_code == canonical_base)
@@ -733,21 +765,8 @@ def _latest_two_timestamps(session, canonical_base: str) -> Tuple[Optional[datet
 
 
 def _rates_for_timestamp(session, canonical_base: str, timestamp: datetime) -> Dict[str, Decimal]:
-    rows = (
-        session.query(FxRate)
-        .filter(
-            FxRate.base_currency_code == canonical_base,
-            FxRate.timestamp == timestamp,
-        )
-        .all()
-    )
-    if not rows:
-        return {}
-    normalized_base = normalize_currency(canonical_base)
-    rates: Dict[str, Decimal] = {normalized_base: Decimal("1")}
-    for row in rows:
-        rates[normalize_currency(row.target_currency_code)] = row.rate
-    return rates
+    rates_map = _rates_for_timestamps(session, canonical_base, [timestamp])
+    return rates_map.get(_to_utc_datetime(timestamp), {})
 
 
 def _portfolio_value_from_rates(
@@ -849,6 +868,3 @@ def _apply_currency_shock(
             else:
                 shocked[code_norm] = rate_value
     return shocked
-
-
-
