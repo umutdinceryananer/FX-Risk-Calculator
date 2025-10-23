@@ -38,6 +38,19 @@ blueprints.
    ```
    The API will listen on `http://127.0.0.1:5000` by default.
 
+## Local Data & Seeding
+- Run database migrations before first use: `alembic upgrade head`. The initial
+  revision seeds the currency registry so validation works out of the box.
+- Populate historical FX rates when you need meaningful metrics:
+  ```bash
+  flask --app app.cli.backfill backfill-rates --days 30 --base USD
+  ```
+- Generate a sample portfolio (~2k positions) and verify latency budgets with:
+  ```bash
+  python scripts/perf_sanity_check.py --reset
+  ```
+  See `docs/performance.md` for the expected output and query plans.
+
 ## Configuration
 - `APP_ENV` selects the config class (`development` or `production`).
 - `DATABASE_URL`, `SECRET_KEY`, `SCHEDULER_TIMEZONE`, and other variables are
@@ -56,6 +69,26 @@ blueprints.
 - `REFRESH_THROTTLE_SECONDS` controls how frequently `POST /rates/refresh` may succeed (default 60 seconds). Set to `0` to disable throttling.
 - CORS is opt-in: configure `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_HEADERS`, `CORS_ALLOWED_METHODS`, and `CORS_MAX_AGE` (comma-separated values) to permit browser clients like Vite or CRA.
 - CLI backfill: `flask --app app.cli.backfill backfill-rates --days 30 --base USD`
+
+## Scheduler & Refresh Workflow
+- The orchestrator keeps the most recent successful FX snapshot in memory. When
+  both primary and fallback providers fail, the cached snapshot is returned and
+  logged with `event=provider.stale` so downstream systems can spot stale data.
+- APScheduler registers a `refresh_rates` job driven by `RATES_REFRESH_CRON`. Set
+  `SCHEDULER_ENABLED=false` if you prefer manual refreshes only.
+- Manual refreshes hit `POST /rates/refresh` and are guarded by the shared
+  throttle window. A 429 response includes `retry_after` so callers can back off.
+- Provider fetch timings emit structured logs (`event=provider.fetch`) with the
+  request id, provider name, and success/error status.
+
+## Provider Ordering & Data Attribution
+- The canonical rates source defaults to `exchangerate_host` (ExchangeRate.host)
+  with an optional fallback to the European Central Bank via the Frankfurter API.
+- Set `FX_RATE_PROVIDER`/`FX_FALLBACK_PROVIDER` to adjust the order; both rely on
+  the same HTTP client settings (`REQUEST_TIMEOUT_SECONDS`, retry policy, etc.).
+- Data courtesy of [ExchangeRate.host](https://exchangerate.host) and the
+  [European Central Bank](https://www.ecb.europa.eu/) via Frankfurter.
+
 ## Endpoints
 - `GET /health` returns general service health information.
 - `GET /health/rates` reports the FX rates pipeline status (stubbed as
@@ -206,6 +239,17 @@ Validation rules:
 ### Performance Sanity Check
 
 Use `python scripts/perf_sanity_check.py` to seed a ~2k-position dataset and print latency numbers for the main portfolio metrics endpoints. See `docs/performance.md` for sample output and interpretation guidelines.
+
+## Troubleshooting
+- **`sqlite3.OperationalError: no such table`** – run `alembic upgrade head` to
+  apply migrations before starting the app or executing CLI commands.
+- **Provider timeouts** – double-check internet connectivity and increase
+  `REQUEST_TIMEOUT_SECONDS` if your network is slow. Enable a fallback provider
+  to improve resilience when the primary is down.
+- **Repeated 429 on `/rates/refresh`** – the throttle is still active. Either wait
+  for the window to elapse or lower `REFRESH_THROTTLE_SECONDS` for development.
+- **CORS preflight failures** – set `CORS_ALLOWED_ORIGINS` (and related headers)
+  to include your frontend dev origin before reloading the app.
 
 ### Docker Compose
 1. Ensure Docker is running, then build and start the stack:
