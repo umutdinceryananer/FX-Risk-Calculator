@@ -1,0 +1,1411 @@
+{
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/health/rates": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthRates"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/currencies/validate": {
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyValidationResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrencyValidationRequest"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      }
+    },
+    "/api/v1/portfolios": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioCollection"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Portfolios"
+        ]
+      },
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioCreate"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Portfolios"
+        ]
+      }
+    },
+    "/api/v1/portfolios/{portfolio_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Portfolios"
+        ]
+      },
+      "put": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioUpdate"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Portfolios"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Portfolios"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/portfolios/{portfolio_id}/positions": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "type": "integer",
+              "default": 25,
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "minLength": 3,
+              "maxLength": 3,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "side",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "default": "created_at",
+              "enum": [
+                "currency",
+                "amount",
+                "side",
+                "created_at"
+              ]
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "schema": {
+              "type": "string",
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionCollection"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Positions"
+        ]
+      },
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PositionCreate"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Positions"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/portfolios/{portfolio_id}/positions/{position_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Positions"
+        ]
+      },
+      "put": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PositionUpdate"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Positions"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Positions"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        {
+          "in": "path",
+          "name": "position_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/metrics/portfolio/{portfolio_id}/value": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "base",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioValueResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/metrics/portfolio/{portfolio_id}/exposure": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "base",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "top_n",
+            "schema": {
+              "type": "integer",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioExposureResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/metrics/portfolio/{portfolio_id}/pnl/daily": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "base",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioDailyPnLResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/metrics/portfolio/{portfolio_id}/whatif": {
+      "post": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "base",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioWhatIfResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioWhatIfRequest"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/v1/metrics/portfolio/{portfolio_id}/value/series": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "base",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "minimum": 1,
+              "maximum": 365
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioValueSeriesResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "portfolio_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    }
+  },
+  "info": {
+    "title": "FX Risk Calculator API",
+    "version": "v1"
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health endpoints"
+    },
+    {
+      "name": "Currencies",
+      "description": "Currency validation endpoints"
+    },
+    {
+      "name": "Portfolios",
+      "description": "Portfolio management endpoints"
+    },
+    {
+      "name": "Positions",
+      "description": "Portfolio position endpoints"
+    },
+    {
+      "name": "Metrics",
+      "description": "Portfolio metrics endpoints"
+    }
+  ],
+  "openapi": "3.0.3",
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "Error code"
+          },
+          "status": {
+            "type": "string",
+            "description": "Error name"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "errors": {
+            "type": "object",
+            "description": "Errors",
+            "additionalProperties": {}
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          },
+          "first_page": {
+            "type": "integer"
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "previous_page": {
+            "type": "integer"
+          },
+          "next_page": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HealthStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "app": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "HealthRates": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          },
+          "base_currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_updated": {
+            "type": "string",
+            "nullable": true
+          },
+          "stale": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "CurrencyValidationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CurrencyValidationResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "base_currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_currency",
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioCollection": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortfolioResponse"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "base_currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          }
+        },
+        "required": [
+          "base_currency",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "default": null,
+            "minLength": 1,
+            "maxLength": 100,
+            "nullable": true
+          },
+          "base_currency": {
+            "type": "string",
+            "default": null,
+            "minLength": 3,
+            "maxLength": 3,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PositionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "currency_code": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "amount",
+          "created_at",
+          "currency_code",
+          "id",
+          "side"
+        ],
+        "additionalProperties": false
+      },
+      "PositionCollection": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositionResponse"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "PositionCreate": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "amount": {
+            "type": "number"
+          },
+          "side": {
+            "type": "string",
+            "default": "LONG"
+          }
+        },
+        "required": [
+          "amount",
+          "currency_code"
+        ],
+        "additionalProperties": false
+      },
+      "PositionUpdate": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "default": null,
+            "minLength": 3,
+            "maxLength": 3,
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "default": null,
+            "nullable": true
+          },
+          "side": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PortfolioValueResponse": {
+        "type": "object",
+        "properties": {
+          "portfolio_id": {
+            "type": "integer"
+          },
+          "portfolio_base": {
+            "type": "string"
+          },
+          "view_base": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "priced": {
+            "type": "integer"
+          },
+          "unpriced": {
+            "type": "integer"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "unpriced_reasons": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "portfolio_base",
+          "portfolio_id",
+          "priced",
+          "unpriced",
+          "unpriced_reasons",
+          "value",
+          "view_base"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioExposureItem": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string"
+          },
+          "net_native": {
+            "type": "number"
+          },
+          "base_equivalent": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_equivalent",
+          "currency_code",
+          "net_native"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioExposureResponse": {
+        "type": "object",
+        "properties": {
+          "portfolio_id": {
+            "type": "integer"
+          },
+          "portfolio_base": {
+            "type": "string"
+          },
+          "view_base": {
+            "type": "string"
+          },
+          "exposures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortfolioExposureItem"
+            }
+          },
+          "priced": {
+            "type": "integer"
+          },
+          "unpriced": {
+            "type": "integer"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "unpriced_reasons": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "exposures",
+          "portfolio_base",
+          "portfolio_id",
+          "priced",
+          "unpriced",
+          "unpriced_reasons",
+          "view_base"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioDailyPnLResponse": {
+        "type": "object",
+        "properties": {
+          "portfolio_id": {
+            "type": "integer"
+          },
+          "portfolio_base": {
+            "type": "string"
+          },
+          "view_base": {
+            "type": "string"
+          },
+          "pnl": {
+            "type": "number"
+          },
+          "value_current": {
+            "type": "number"
+          },
+          "value_previous": {
+            "type": "number",
+            "nullable": true
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "prev_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "positions_changed": {
+            "type": "boolean"
+          },
+          "priced_current": {
+            "type": "integer"
+          },
+          "unpriced_current": {
+            "type": "integer"
+          },
+          "priced_previous": {
+            "type": "integer"
+          },
+          "unpriced_previous": {
+            "type": "integer"
+          },
+          "unpriced_current_reasons": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "unpriced_previous_reasons": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "pnl",
+          "portfolio_base",
+          "portfolio_id",
+          "positions_changed",
+          "priced_current",
+          "priced_previous",
+          "unpriced_current",
+          "unpriced_current_reasons",
+          "unpriced_previous",
+          "unpriced_previous_reasons",
+          "value_current",
+          "view_base"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioWhatIfRequest": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "shock_pct": {
+            "type": "number",
+            "minimum": "-10",
+            "maximum": "10"
+          }
+        },
+        "required": [
+          "currency",
+          "shock_pct"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioWhatIfResponse": {
+        "type": "object",
+        "properties": {
+          "portfolio_id": {
+            "type": "integer"
+          },
+          "portfolio_base": {
+            "type": "string"
+          },
+          "view_base": {
+            "type": "string"
+          },
+          "shocked_currency": {
+            "type": "string"
+          },
+          "shock_pct": {
+            "type": "number"
+          },
+          "current_value": {
+            "type": "number"
+          },
+          "new_value": {
+            "type": "number"
+          },
+          "delta_value": {
+            "type": "number"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "current_value",
+          "delta_value",
+          "new_value",
+          "portfolio_base",
+          "portfolio_id",
+          "shock_pct",
+          "shocked_currency",
+          "view_base"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioValueSeriesPoint": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "PortfolioValueSeriesResponse": {
+        "type": "object",
+        "properties": {
+          "portfolio_id": {
+            "type": "integer"
+          },
+          "portfolio_base": {
+            "type": "string"
+          },
+          "view_base": {
+            "type": "string"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortfolioValueSeriesPoint"
+            }
+          }
+        },
+        "required": [
+          "portfolio_base",
+          "portfolio_id",
+          "series",
+          "view_base"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "DEFAULT_ERROR": {
+        "description": "Default error response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UNPROCESSABLE_CONTENT": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}
