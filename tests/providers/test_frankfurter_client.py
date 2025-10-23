@@ -1,8 +1,11 @@
+"""Tests for the Frankfurter client wrapper."""
+
 from __future__ import annotations
 
 import pytest
 import responses
 from responses import matchers
+from tests.fixtures import load_json
 
 from app.providers.frankfurter_client import (
     FrankfurterAPIError,
@@ -10,9 +13,11 @@ from app.providers.frankfurter_client import (
     FrankfurterClientConfig,
 )
 
+pytestmark = pytest.mark.providers
+
 
 @pytest.fixture()
-def client():
+def client() -> FrankfurterClient:
     config = FrankfurterClientConfig(
         base_url="https://api.frankfurter.app",
         timeout=2,
@@ -23,16 +28,11 @@ def client():
 
 
 @responses.activate
-def test_frankfurter_client_returns_payload(client):
+def test_client_returns_payload(client: FrankfurterClient) -> None:
     responses.add(
         responses.GET,
         "https://api.frankfurter.app/latest",
-        json={
-            "amount": 1.0,
-            "base": "EUR",
-            "date": "2025-10-13",
-            "rates": {"USD": 1.0623, "GBP": 0.87},
-        },
+        json=load_json("frankfurter_latest.json"),
         match=[matchers.query_param_matcher({"base": "EUR", "symbols": "USD,GBP"})],
         status=200,
     )
@@ -44,7 +44,7 @@ def test_frankfurter_client_returns_payload(client):
 
 
 @responses.activate
-def test_frankfurter_client_raises_on_http_error(client):
+def test_client_raises_on_http_error(client: FrankfurterClient) -> None:
     responses.add(
         responses.GET,
         "https://api.frankfurter.app/latest",
@@ -56,7 +56,7 @@ def test_frankfurter_client_raises_on_http_error(client):
 
 
 @responses.activate
-def test_frankfurter_client_validates_payload(client):
+def test_client_validates_payload_shape(client: FrankfurterClient) -> None:
     responses.add(
         responses.GET,
         "https://api.frankfurter.app/latest",
