@@ -374,7 +374,7 @@ Spin up app in test mode and verify full flow: Create portfolio ΓåÆ add posit
 
 # Issue 36: Unit tests (module-based)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
@@ -418,7 +418,7 @@ Comprehensive pytest suite for calculations, providers, and CRUD.
 
 # Issue 35: Docker for local development
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
