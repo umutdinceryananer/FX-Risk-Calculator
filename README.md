@@ -45,6 +45,11 @@ blueprints.
   ```bash
   flask --app app.cli.backfill backfill-rates --days 30 --base USD
   ```
+- Seed the demo portfolio on first run to populate dashboards:
+  ```bash
+  flask --app app.cli.seed_demo seed-demo
+  ```
+  This command is idempotent and will recreate the “Global Book (USD)” sample positions when needed.
 - Generate a sample portfolio (~2k positions) and verify latency budgets with:
   ```bash
   python scripts/perf_sanity_check.py --reset
