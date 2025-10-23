@@ -18,6 +18,7 @@ export function renderDashboardView(root) {
     staleBanner: root.querySelector("[data-stale-banner]"),
     viewBaseForm: root.querySelector("[data-view-base-form]"),
     viewBaseInput: root.querySelector("[data-view-base-input]"),
+    viewBaseError: root.querySelector("[data-view-base-error]"),
     refreshButton: root.querySelector("[data-refresh-button]"),
     refreshStatus: root.querySelector("[data-refresh-status]"),
 
@@ -77,33 +78,72 @@ export function renderDashboardView(root) {
     }));
   });
 
+  const showViewBaseError = (message) => {
+    if (elements.viewBaseInput) {
+      elements.viewBaseInput.classList.add("is-invalid");
+    }
+    if (elements.viewBaseError) {
+      elements.viewBaseError.textContent = message;
+      elements.viewBaseError.classList.remove("d-none");
+    }
+  };
+
+  const clearViewBaseError = () => {
+    if (elements.viewBaseInput) {
+      elements.viewBaseInput.classList.remove("is-invalid");
+    }
+    if (elements.viewBaseError) {
+      elements.viewBaseError.classList.add("d-none");
+    }
+  };
+
   const onViewBaseInput = (event) => {
     event.target.value = (event.target.value || "").toUpperCase().slice(0, 3);
+    clearViewBaseError();
   };
 
   const onViewBaseSubmit = (event) => {
     event.preventDefault();
     const value = (elements.viewBaseInput?.value || "").trim().toUpperCase();
     if (!VIEW_BASE_PATTERN.test(value)) {
-      showToast({
-        title: "Invalid base currency",
-        message: "Please enter a 3-letter ISO currency code.",
-        variant: "warning",
-      });
+      showViewBaseError("Enter a 3-letter ISO currency code.");
       return;
     }
+    clearViewBaseError();
     setViewBase(value);
   };
 
   const onRefreshClick = async () => {
     const result = await triggerManualRefresh();
-    if (!result.ok) {
-      lastRefreshError = result.message;
+    lastRefreshError = result.error || null;
+
+    if (result.ok) {
+      showToast({
+        title: "Rates refresh triggered",
+        message: result.message,
+        variant: "success",
+      });
+      return;
     }
+
+    const error = result.error;
+    const actions = [];
+    if (error && !error.isThrottled) {
+      actions.push({
+        label: "Retry now",
+        variant: "light",
+        onClick: () => {
+          triggerManualRefresh().catch(() => {});
+        },
+      });
+    }
+
     showToast({
-      title: result.ok ? "Rates refresh triggered" : "Refresh failed",
-      message: result.message,
-      variant: result.ok ? "success" : "danger",
+      title: error?.title || "Refresh failed",
+      message: composeErrorMessage(error) || result.message,
+      variant: toastVariant(error),
+      actions,
+      autohide: actions.length === 0,
     });
   };
 
@@ -158,6 +198,9 @@ function template() {
                 data-view-base-input
               />
               <label for="dashboardViewBase">View base</label>
+              <div class="invalid-feedback d-none" data-view-base-error>
+                Enter a 3-letter ISO currency code.
+              </div>
             </div>
             <button type="submit" class="btn btn-outline-primary">Apply</button>
           </form>
@@ -304,15 +347,22 @@ function renderRefreshControls(elements, refresh) {
     elements.refreshButton.classList.toggle("disabled", isLoading);
   }
   if (elements.refreshStatus) {
+    elements.refreshStatus.classList.remove("text-danger", "text-warning");
     if (isLoading) {
       elements.refreshStatus.textContent = "Refreshing FX rates…";
-      elements.refreshStatus.classList.remove("text-danger");
     } else if (refresh?.error) {
-      elements.refreshStatus.textContent = refresh.error.message;
-      elements.refreshStatus.classList.add("text-danger");
+      const statusVariant = toastVariant(refresh.error);
+      if (statusVariant === "warning") {
+        elements.refreshStatus.classList.add("text-warning");
+      } else {
+        elements.refreshStatus.classList.add("text-danger");
+      }
+      elements.refreshStatus.textContent =
+        composeErrorMessage(refresh.error) ||
+        refresh.error.message ||
+        "Unable to refresh FX rates.";
     } else {
       elements.refreshStatus.textContent = "";
-      elements.refreshStatus.classList.remove("text-danger");
     }
   }
 }
@@ -342,7 +392,11 @@ function renderValueCard(elements, metricsState) {
 
   if (metricsState.error || !metricsState.value) {
     valueTotal.textContent = "--";
-    valueAsOf.textContent = metricsState.error?.message || "Unable to load portfolio value.";
+    const errorMessage =
+      composeErrorMessage(metricsState.error) ||
+      metricsState.error?.message ||
+      "Unable to load portfolio value.";
+    valueAsOf.textContent = errorMessage;
     valueStatus.textContent = "Unavailable";
     hideUnpriced(valueUnpriced);
     return;
@@ -391,7 +445,11 @@ function renderPnlCard(elements, metricsState) {
 
   if (metricsState.error || !metricsState.pnl) {
     pnlTotal.textContent = "--";
-    pnlAsOf.textContent = metricsState.error?.message || "Unable to load daily P&L.";
+    const errorMessage =
+      composeErrorMessage(metricsState.error) ||
+      metricsState.error?.message ||
+      "Unable to load daily P&L.";
+    pnlAsOf.textContent = errorMessage;
     pnlStatus.textContent = "Unavailable";
     pnlCurrent.textContent = "--";
     pnlPrevious.textContent = "--";
@@ -618,38 +676,95 @@ function formatReason(value) {
 }
 
 function maybeAnnounceErrors(stateSnapshot, lastKnown) {
-  const nextMetricsError = stateSnapshot.metrics.error?.message || null;
-  if (nextMetricsError && nextMetricsError !== lastKnown.metrics) {
+  const metricsError = stateSnapshot.metrics.error || null;
+  if (shouldAnnounce(metricsError, lastKnown.metrics)) {
     showToast({
-      title: "Metrics unavailable",
-      message: nextMetricsError,
-      variant: "danger",
+      title: metricsError?.title || "Metrics unavailable",
+      message: composeErrorMessage(metricsError) || "Unable to load metrics.",
+      variant: toastVariant(metricsError),
     });
   }
 
-  const nextRefreshError = stateSnapshot.refresh.error?.message || null;
-  if (nextRefreshError && nextRefreshError !== lastKnown.refresh) {
+  const refreshError = stateSnapshot.refresh.error || null;
+  if (shouldAnnounce(refreshError, lastKnown.refresh)) {
+    const actions = [];
+    if (refreshError && !refreshError.isThrottled) {
+      actions.push({
+        label: "Retry now",
+        variant: "light",
+        onClick: () => {
+          triggerManualRefresh().catch(() => {});
+        },
+      });
+    }
     showToast({
-      title: "Refresh error",
-      message: nextRefreshError,
-      variant: "danger",
+      title: refreshError?.title || "Refresh error",
+      message: composeErrorMessage(refreshError) || "Unable to refresh FX rates.",
+      variant: toastVariant(refreshError),
+      actions,
+      autohide: actions.length === 0,
     });
   }
 
-  const nextHealthError = stateSnapshot.health.error?.message || null;
-  if (nextHealthError && nextHealthError !== lastKnown.health) {
+  const healthError = stateSnapshot.health.error || null;
+  if (shouldAnnounce(healthError, lastKnown.health)) {
     showToast({
-      title: "Health status unavailable",
-      message: nextHealthError,
-      variant: "danger",
+      title: healthError?.title || "Provider status unavailable",
+      message: composeErrorMessage(healthError) || "Unable to load provider status.",
+      variant: toastVariant(healthError),
     });
   }
 
   return {
-    lastMetricsError: nextMetricsError || null,
-    lastRefreshError: nextRefreshError || null,
-    lastHealthError: nextHealthError || null,
+    lastMetricsError: metricsError || null,
+    lastRefreshError: refreshError || null,
+    lastHealthError: healthError || null,
   };
+}
+
+function shouldAnnounce(nextError, previousError) {
+  if (!nextError) {
+    return false;
+  }
+  if (!previousError) {
+    return true;
+  }
+  return !isSameError(nextError, previousError);
+}
+
+function isSameError(a, b) {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.message === b.message &&
+    a.status === b.status &&
+    (a.retryAfter || null) === (b.retryAfter || null) &&
+    Boolean(a.isNetworkError) === Boolean(b.isNetworkError)
+  );
+}
+
+function composeErrorMessage(error) {
+  if (!error) {
+    return "";
+  }
+  if (error.isThrottled && error.retryAfter) {
+    return `${error.message} Try again in ${error.retryAfter} seconds.`;
+  }
+  return error.message;
+}
+
+function toastVariant(error) {
+  if (!error) {
+    return "danger";
+  }
+  if (error.isNetworkError || error.isValidationError) {
+    return "warning";
+  }
+  return "danger";
 }
 
 function escapeHtml(value) {

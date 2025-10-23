@@ -1,6 +1,5 @@
 import { normalizeApiError, normalizeNetworkError } from "./utils/errors.js";
 
-const API_ROOT = "/api/v1";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export async function getJson(path, options = {}) {
@@ -10,6 +9,28 @@ export async function getJson(path, options = {}) {
     response = await fetch(url, {
       method: "GET",
       headers: JSON_HEADERS,
+      ...options,
+    });
+  } catch (networkError) {
+    throw buildNetworkError(networkError);
+  }
+
+  if (!response.ok) {
+    const errorBody = await safeJson(response);
+    throw buildError(response, errorBody);
+  }
+
+  return response.json();
+}
+
+export async function putJson(path, body, options = {}) {
+  const url = new URL(path, window.location.origin);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(body),
       ...options,
     });
   } catch (networkError) {

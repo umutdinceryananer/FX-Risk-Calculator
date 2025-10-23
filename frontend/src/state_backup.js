@@ -128,22 +128,21 @@ export async function refreshData() {
     });
   } catch (error) {
     updateState((draft) => {
-      const metricsError = toStateError(error, "Unable to load metrics.", "Metrics unavailable");
-      const healthError = toStateError(
-        error,
-        "Unable to load provider status.",
-        "Provider status unavailable"
-      );
-      const refreshError = toStateError(error, "Unable to refresh data.", "Refresh error");
-
       draft.metrics.loading = false;
-      draft.metrics.error = metricsError;
+      draft.metrics.error = {
+        message: error?.message || "Unable to load metrics",
+        status: error?.status,
+      };
 
       draft.health.loading = false;
-      draft.health.error = healthError;
-
-      draft.refresh.loading = false;
-      draft.refresh.error = refreshError;
+      draft.health.error = {
+        message: error?.message || "Unable to load health status",
+        status: error?.status,
+      };
+      draft.refresh.error = {
+        message: error?.message || "Unable to refresh data",
+        status: error?.status,
+      };
     });
   }
 }
@@ -164,20 +163,24 @@ export async function triggerManualRefresh() {
     await refreshPositions();
     updateState((draft) => {
       draft.refresh.loading = false;
-      draft.refresh.error = null;
     });
     return { ok: true, message: response?.message || "Refresh triggered." };
   } catch (error) {
-    const normalized = toStateError(error, "Unable to refresh FX rates.", "Refresh failed");
-    let friendlyMessage = normalized.message;
-    if (normalized.isThrottled && normalized.retryAfter) {
-      friendlyMessage = `${normalized.message} Try again in ${normalized.retryAfter} seconds.`;
+    const retryAfter = toPositiveInteger(error?.payload?.retry_after);
+    let friendlyMessage = error?.message || "Unable to refresh FX rates.";
+    if (error?.status === 429 && retryAfter) {
+      friendlyMessage = `Refresh throttled. Try again in ${retryAfter} seconds.`;
+    } else if (error?.status === 503) {
+      friendlyMessage = "FX providers are temporarily unavailable. Please retry shortly.";
     }
     updateState((draft) => {
       draft.refresh.loading = false;
-      draft.refresh.error = normalized;
+      draft.refresh.error = {
+        message: friendlyMessage,
+        status: error?.status,
+      };
     });
-    return { ok: false, message: friendlyMessage, error: normalized };
+    return { ok: false, message: friendlyMessage, status: error?.status };
   }
 }
 
@@ -246,11 +249,10 @@ export async function refreshPositions({ resetPage = false } = {}) {
     updateState(
       (draft) => {
         draft.positions.loading = false;
-        draft.positions.error = toStateError(
-          error,
-          "Unable to load positions.",
-          "Positions unavailable"
-        );
+        draft.positions.error = {
+          message: error?.message || "Unable to load positions",
+          status: error?.status,
+        };
       },
       { type: "positions_error" }
     );
@@ -541,25 +543,6 @@ function buildPositionsQueryParams() {
   }
 
   return params.toString();
-}
-
-function toStateError(error, fallbackMessage, fallbackTitle) {
-  const hasError = Boolean(error);
-  const retryAfter = toPositiveInteger(error?.retryAfter);
-  return {
-    message: hasError ? error.message || fallbackMessage : fallbackMessage,
-    title: hasError ? error.title || fallbackTitle || "Error" : fallbackTitle || "Error",
-    status: hasError && typeof error.status === "number" ? error.status : null,
-    retryAfter: retryAfter || null,
-    fieldErrors:
-      hasError && error.fieldErrors && typeof error.fieldErrors === "object"
-        ? { ...error.fieldErrors }
-        : {},
-    isValidationError: Boolean(error?.isValidationError),
-    isThrottled: Boolean(error?.isThrottled),
-    isNetworkError: Boolean(error?.isNetworkError),
-    raw: hasError ? error : null,
-  };
 }
 
 function normalizeSortField(value) {
