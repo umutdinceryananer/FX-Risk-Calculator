@@ -124,6 +124,11 @@ Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust c
 - Swagger UI: http://127.0.0.1:5000/docs/
 - OpenAPI spec: http://127.0.0.1:5000/docs/openapi.json
 
+### Postman Collection
+- Import `postman/fx-risk-calculator.postman_collection.json` for a curated set of health, portfolio, position, rates, and metrics requests.
+- Pair it with the environment file `postman/fx-risk-calculator.postman_environment.json` to populate `{{baseUrl}}`, `{{portfolioId}}`, and other reusable variables.
+- Run “Create Portfolio” first to set `portfolioId`, then create positions before issuing metrics calls. Use the manual refresh request to pull fresh rates when needed.
+
 ## Portfolio API
 - `GET /api/v1/portfolios?page=<page>&page_size=<limit>` lists portfolios with pagination metadata.
 - `POST /api/v1/portfolios` creates a portfolio. Example:
