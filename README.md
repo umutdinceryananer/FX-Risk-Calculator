@@ -203,6 +203,9 @@ Validation rules:
 - Inside `frontend/`, you can also run `npm run lint` and `npm run format` directly.
 - Update the coverage badge with `coverage run -m pytest && coverage-badge -o coverage.svg`.
 
+### Performance Sanity Check
+
+Use `python scripts/perf_sanity_check.py` to seed a ~2k-position dataset and print latency numbers for the main portfolio metrics endpoints. See `docs/performance.md` for sample output and interpretation guidelines.
 
 ### Docker Compose
 1. Ensure Docker is running, then build and start the stack:

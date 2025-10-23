@@ -292,7 +292,7 @@ Write complete documentation and example requests.
 
 # Issue 38: Performance sanity check
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
