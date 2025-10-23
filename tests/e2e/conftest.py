@@ -10,7 +10,7 @@ import pytest
 from app.providers import RateHistorySeries, RateSnapshot
 from app.services.orchestrator import Orchestrator
 
-from .providers import SequencedProvider
+from .providers import LatestQueueItem, SequencedProvider
 
 
 @pytest.fixture()
@@ -19,8 +19,8 @@ def orchestrator_stub(app):
 
     def _factory(
         *,
-        primary_latest: Iterable[RateSnapshot] = (),
-        fallback_latest: Optional[Iterable[RateSnapshot]] = None,
+        primary_latest: Iterable[LatestQueueItem] = (),
+        fallback_latest: Optional[Iterable[LatestQueueItem]] = None,
         primary_history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
         fallback_history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
         attach: bool = True,

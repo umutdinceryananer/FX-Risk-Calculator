@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Deque, Iterable, Mapping, MutableMapping
+from typing import Deque, Iterable, Mapping, MutableMapping, Union
 
 from app.providers import (
     BaseRateProvider,
@@ -15,6 +15,9 @@ from app.providers import (
     RatePoint,
     RateSnapshot,
 )
+
+
+LatestQueueItem = Union[RateSnapshot, Exception]
 
 
 @dataclass(slots=True)
@@ -33,11 +36,11 @@ class SequencedProvider(BaseRateProvider):
     def __init__(
         self,
         name: str,
-        latest: Iterable[RateSnapshot] | None = None,
+        latest: Iterable[LatestQueueItem] | None = None,
         history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
     ) -> None:
         self.name = name
-        self._latest: Deque[RateSnapshot] = deque(latest or [])
+        self._latest: Deque[LatestQueueItem] = deque(latest or [])
         self._history: MutableMapping[tuple[str, str], RateHistorySeries] = dict(history or {})
         self.calls: list[ProviderCall] = []
 
@@ -46,7 +49,10 @@ class SequencedProvider(BaseRateProvider):
         self.calls.append(ProviderCall(method="get_latest", base=normalized_base))
         if not self._latest:
             raise ProviderError(f"{self.name} exhausted: no snapshot available")
-        return self._latest.popleft()
+        item = self._latest.popleft()
+        if isinstance(item, Exception):
+            raise item
+        return item
 
     def get_history(self, base: str, symbol: str, days: int) -> RateHistorySeries:
         normalized_base = base.strip().upper()
@@ -67,7 +73,7 @@ class SequencedProvider(BaseRateProvider):
                 f"{self.name} has no history for {normalized_base}/{normalized_symbol}"
             ) from exc
 
-    def preload_latest(self, snapshots: Iterable[RateSnapshot]) -> None:
+    def preload_latest(self, snapshots: Iterable[LatestQueueItem]) -> None:
         """Extend the queue of latest snapshots."""
 
         self._latest.extend(snapshots)
