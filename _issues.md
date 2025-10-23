@@ -248,7 +248,7 @@ Add deterministic demo data for first-run experience.
 
 # Issue 39: Docs: README + Postman + API schema
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
