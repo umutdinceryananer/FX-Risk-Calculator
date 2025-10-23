@@ -127,3 +127,24 @@ def test_delete_portfolio_cascades_positions(client):
 
     verify = client.get(f"/api/v1/portfolios/{portfolio_id}")
     assert verify.status_code == 404
+
+
+def test_create_portfolio_requires_name(client):
+    response = client.post(
+        "/api/v1/portfolios",
+        json={"name": "   ", "base_currency": "USD"},
+    )
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert "Portfolio name cannot be blank" in payload["message"]
+
+
+def test_create_portfolio_enforces_unique_name(client):
+    _create_portfolio(client, "Alpha Fund", "USD")
+    response = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Alpha Fund", "base_currency": "EUR"},
+    )
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert "Portfolio name must be unique" in payload["message"]

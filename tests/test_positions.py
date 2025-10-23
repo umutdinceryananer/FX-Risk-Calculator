@@ -69,23 +69,21 @@ def test_create_position_validates_currency(client, portfolio):
 
 def test_list_positions_supports_filters(client, portfolio):
     _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "10"})
-    _create_position(client, portfolio["id"], {"currency_code": "GBP", "amount": "5", "side": "SHORT"})
+    _create_position(
+        client, portfolio["id"], {"currency_code": "GBP", "amount": "5", "side": "SHORT"}
+    )
 
     response = client.get(f"/api/v1/portfolios/{portfolio['id']}/positions")
     payload = response.get_json()
     assert response.status_code == 200
     assert payload["total"] == 2
 
-    eur_response = client.get(
-        f"/api/v1/portfolios/{portfolio['id']}/positions?currency=eur"
-    )
+    eur_response = client.get(f"/api/v1/portfolios/{portfolio['id']}/positions?currency=eur")
     eur_payload = eur_response.get_json()
     assert eur_payload["total"] == 1
     assert eur_payload["items"][0]["currency_code"] == "EUR"
 
-    short_response = client.get(
-        f"/api/v1/portfolios/{portfolio['id']}/positions?side=short"
-    )
+    short_response = client.get(f"/api/v1/portfolios/{portfolio['id']}/positions?side=short")
     short_payload = short_response.get_json()
     assert short_payload["total"] == 1
     assert short_payload["items"][0]["side"] == "SHORT"
@@ -93,7 +91,9 @@ def test_list_positions_supports_filters(client, portfolio):
 
 def test_list_positions_supports_sorting(client, portfolio):
     _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "10"})
-    largest = _create_position(client, portfolio["id"], {"currency_code": "GBP", "amount": "25", "side": "SHORT"})
+    largest = _create_position(
+        client, portfolio["id"], {"currency_code": "GBP", "amount": "25", "side": "SHORT"}
+    )
     _create_position(client, portfolio["id"], {"currency_code": "AUD", "amount": "7"})
 
     response = client.get(
@@ -160,3 +160,17 @@ def test_delete_position_removes_record(client, portfolio):
         .count()
     )
     assert remaining == 0
+
+
+def test_get_position_success(client, portfolio):
+    created = _create_position(client, portfolio["id"], {"currency_code": "EUR", "amount": "15"})
+    response = client.get(f"/api/v1/portfolios/{portfolio['id']}/positions/{created['id']}")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["id"] == created["id"]
+    assert payload["currency_code"] == "EUR"
+
+
+def test_delete_position_missing_returns_404(client, portfolio):
+    response = client.delete(f"/api/v1/portfolios/{portfolio['id']}/positions/9999")
+    assert response.status_code == 404
