@@ -20,6 +20,12 @@ const POSITIONS_DEFAULTS = {
   loading: false,
   error: null,
 };
+const POSITION_CREATE_DEFAULTS = {
+  submitting: false,
+  error: null,
+  fieldErrors: {},
+  lastCreated: null,
+};
 
 let metricsRequestToken = 0;
 let positionsRequestToken = 0;
@@ -46,6 +52,7 @@ const state = {
     loading: false,
     error: null,
   },
+  positionCreate: clonePositionCreateState(POSITION_CREATE_DEFAULTS),
   charts: {
     exposure: {
       labels: [],
@@ -324,6 +331,76 @@ export async function refreshPositions({ resetPage = false } = {}) {
   }
 }
 
+export async function createPosition(payload = {}) {
+  if (!state.portfolioId) {
+    const error = new Error("Unable to create position without an active portfolio.");
+    error.code = "portfolio_not_selected";
+    throw error;
+  }
+
+  const requestBody = buildPositionCreatePayload(payload);
+
+  updateState(
+    (draft) => {
+      draft.positionCreate.submitting = true;
+      draft.positionCreate.error = null;
+      draft.positionCreate.fieldErrors = {};
+    },
+    { type: "position_create:pending" }
+  );
+
+  try {
+    const result = await postJson(`/api/v1/portfolios/${state.portfolioId}/positions`, requestBody);
+
+    const created = result && typeof result === "object" ? { ...result } : null;
+
+    updateState(
+      (draft) => {
+        draft.positionCreate.submitting = false;
+        draft.positionCreate.error = null;
+        draft.positionCreate.fieldErrors = {};
+        draft.positionCreate.lastCreated = created ? { ...created } : null;
+      },
+      { type: "position_create:success", payload: created }
+    );
+
+    return created;
+  } catch (error) {
+    const normalized = toStateError(error, "Unable to create position.", "Create position failed");
+    const fieldErrors = cloneFieldErrors(normalized.fieldErrors);
+    const stateError = {
+      ...normalized,
+      fieldErrors,
+    };
+
+    updateState(
+      (draft) => {
+        draft.positionCreate.submitting = false;
+        draft.positionCreate.error = stateError;
+        draft.positionCreate.fieldErrors = fieldErrors;
+      },
+      { type: "position_create:error", error: stateError }
+    );
+
+    const forwarded = Object.assign(new Error(stateError.message), stateError);
+    throw forwarded;
+  }
+}
+
+export function resetPositionCreateState({ keepLastCreated = false } = {}) {
+  updateState(
+    (draft) => {
+      draft.positionCreate.submitting = false;
+      draft.positionCreate.error = null;
+      draft.positionCreate.fieldErrors = {};
+      if (!keepLastCreated) {
+        draft.positionCreate.lastCreated = null;
+      }
+    },
+    { type: "position_create:reset" }
+  );
+}
+
 export function setPositionsPage(page) {
   const nextPage = toPositiveInteger(page);
   if (!nextPage || nextPage === state.positions.page) {
@@ -402,6 +479,7 @@ function updateState(mutator, meta) {
   state.metrics = { ...draft.metrics };
   state.health = { ...draft.health };
   state.refresh = { ...draft.refresh };
+  state.positionCreate = clonePositionCreateState(draft.positionCreate);
   state.charts = {
     exposure: cloneExposureChartData(draft.charts?.exposure),
     timeline: cloneTimelineChartData(draft.charts?.timeline),
@@ -436,12 +514,104 @@ function cloneState() {
       loading: state.refresh.loading,
       error: state.refresh.error ? { ...state.refresh.error } : null,
     },
+    positionCreate: clonePositionCreateState(state.positionCreate),
     positions: clonePositionsState(state.positions),
     charts: {
       exposure: cloneExposureChartData(state.charts.exposure),
       timeline: cloneTimelineChartData(state.charts.timeline),
     },
   };
+}
+
+function clonePositionCreateState(source) {
+  const base = source || POSITION_CREATE_DEFAULTS;
+  const fieldErrors = cloneFieldErrors(base.fieldErrors);
+
+  return {
+    submitting: Boolean(base.submitting),
+    error: base.error
+      ? {
+          ...base.error,
+          fieldErrors: cloneFieldErrors(base.error.fieldErrors),
+        }
+      : null,
+    fieldErrors,
+    lastCreated:
+      base.lastCreated && typeof base.lastCreated === "object" ? { ...base.lastCreated } : null,
+  };
+}
+
+function cloneFieldErrors(source) {
+  if (!source || typeof source !== "object") {
+    return {};
+  }
+
+  const result = {};
+  Object.entries(source).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      const normalized = value
+        .map((item) => (item == null ? null : String(item)))
+        .filter((item) => item !== null);
+      result[key] = normalized;
+    } else if (value == null) {
+      result[key] = [];
+    } else {
+      result[key] = [String(value)];
+    }
+  });
+  return result;
+}
+
+function buildPositionCreatePayload(input = {}) {
+  const payload = {};
+
+  const currencyCode = coerceCurrencyCodeForCreate(input.currencyCode ?? input.currency_code);
+  if (currencyCode !== undefined) {
+    payload.currency_code = currencyCode;
+  }
+
+  const amount = coerceAmountForCreate(input.amount);
+  if (amount !== undefined) {
+    payload.amount = amount;
+  }
+
+  const side = coerceSideForCreate(input.side);
+  if (side !== undefined) {
+    payload.side = side;
+  }
+
+  return payload;
+}
+
+function coerceCurrencyCodeForCreate(value) {
+  if (value === null || typeof value === "undefined") {
+    return undefined;
+  }
+  return String(value).trim().toUpperCase();
+}
+
+function coerceAmountForCreate(value) {
+  if (value === null || typeof value === "undefined") {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return "";
+    }
+    return value.toString();
+  }
+  return String(value).trim();
+}
+
+function coerceSideForCreate(value) {
+  if (value === null || typeof value === "undefined") {
+    return undefined;
+  }
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function buildExposureChartData(exposure) {
