@@ -95,25 +95,7 @@ export function renderDashboardView(root) {
       return;
     }
 
-    const error = result.error;
-    const actions = [];
-    if (error && !error.isThrottled) {
-      actions.push({
-        label: "Retry now",
-        variant: "light",
-        onClick: () => {
-          triggerManualRefresh().catch(() => {});
-        },
-      });
-    }
-
-    showToast({
-      title: error?.title || "Refresh failed",
-      message: composeErrorMessage(error) || result.message,
-      variant: toastVariant(error),
-      actions,
-      autohide: actions.length === 0,
-    });
+    // Let the state subscription announce the error so we avoid duplicate toasts.
   };
 
   if (elements.viewBaseSelect) {

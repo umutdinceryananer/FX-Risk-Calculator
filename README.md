@@ -1,4 +1,4 @@
-﻿# FX Risk Calculator
+# FX Risk Calculator
 
 ![Coverage](coverage.svg)
 
@@ -49,7 +49,7 @@ blueprints.
   ```bash
   flask --app app.cli.seed_demo seed-demo
   ```
-  This command is idempotent and will recreate the â€œGlobal Book (USD)â€ sample positions when needed.
+  This command is idempotent and will recreate the "Global Book (USD)" sample positions when needed.
 - Generate a sample portfolio (~2k positions) and verify latency budgets with:
   ```bash
   python scripts/perf_sanity_check.py --reset
@@ -132,7 +132,7 @@ Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust c
 ### Postman Collection
 - Import `postman/fx-risk-calculator.postman_collection.json` for a curated set of health, portfolio, position, rates, and metrics requests.
 - Pair it with the environment file `postman/fx-risk-calculator.postman_environment.json` to populate `{{baseUrl}}`, `{{portfolioId}}`, and other reusable variables.
-- Run â€œCreate Portfolioâ€ first to set `portfolioId`, then create positions before issuing metrics calls. Use the manual refresh request to pull fresh rates when needed.
+- Run "Create Portfolio" first to set `portfolioId`, then create positions before issuing metrics calls. Use the manual refresh request to pull fresh rates when needed.
 
 ## Portfolio API
 - `GET /api/v1/portfolios?page=<page>&page_size=<limit>` lists portfolios with pagination metadata.
@@ -157,6 +157,20 @@ Validation rules:
   curl -X POST http://127.0.0.1:5000/api/v1/portfolios/1/positions \
     -H "Content-Type: application/json" \
     -d '{"currency_code":"EUR","amount":"2500.00","side":"SHORT"}'
+  ```
+- `side` defaults to `LONG` when omitted; send uppercase values (`LONG`/`SHORT`) to avoid extra normalization.
+- Validation errors return **HTTP 422** with field messages under `errors.json.<field>[]`, for example:
+  ```json
+  {
+    "message": "Submitted data is invalid.",
+    "errors": {
+      "json": {
+        "amount": [
+          "Amount must be greater than zero."
+        ]
+      }
+    }
+  }
   ```
 - `GET /api/v1/portfolios/<portfolio_id>/positions/<position_id>` retrieves a position.
 - `PUT /api/v1/portfolios/<portfolio_id>/positions/<position_id>` updates currency, amount, and/or side.
@@ -259,14 +273,14 @@ Use `python scripts/perf_sanity_check.py` to seed a ~2k-position dataset and pri
 4. Optionally export fresh Postman results for the release notes.
 
 ## Troubleshooting
-- **`sqlite3.OperationalError: no such table`** â€“ run `alembic upgrade head` to
+- **`sqlite3.OperationalError: no such table`** - run `alembic upgrade head` to
   apply migrations before starting the app or executing CLI commands.
-- **Provider timeouts** â€“ double-check internet connectivity and increase
+- **Provider timeouts** - double-check internet connectivity and increase
   `REQUEST_TIMEOUT_SECONDS` if your network is slow. Enable a fallback provider
   to improve resilience when the primary is down.
-- **Repeated 429 on `/rates/refresh`** â€“ the throttle is still active. Either wait
+- **Repeated 429 on `/rates/refresh`** - the throttle is still active. Either wait
   for the window to elapse or lower `REFRESH_THROTTLE_SECONDS` for development.
-- **CORS preflight failures** â€“ set `CORS_ALLOWED_ORIGINS` (and related headers)
+- **CORS preflight failures** - set `CORS_ALLOWED_ORIGINS` (and related headers)
   to include your frontend dev origin before reloading the app.
 
 ### Docker Compose
