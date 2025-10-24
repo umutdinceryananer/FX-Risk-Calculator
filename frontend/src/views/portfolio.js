@@ -7,6 +7,9 @@ import {
   setPositionsSort,
   setPositionsPage,
   setPositionsPageSize,
+  createPosition,
+  resetPositionCreateState,
+  refreshData,
 } from "../state.js";
 import { showToast } from "../ui/toast.js";
 import { formatDateTimeLocal } from "../utils/datetime.js";
@@ -33,10 +36,37 @@ export function renderPortfolioView(root) {
     nextButton: root.querySelector("[data-page-next]"),
     pageSizeSelect: root.querySelector("[data-page-size]"),
     sortButtons: Array.from(root.querySelectorAll("[data-sort-button]")),
+    positionCreateButton: root.querySelector("[data-position-create-trigger]"),
+    positionCreateModal: root.querySelector("#positionCreateModal"),
+    positionCreateForm: root.querySelector("[data-position-create-form]"),
+    positionCreateCurrency: root.querySelector("[data-position-currency]"),
+    positionCreateAmount: root.querySelector("[data-position-amount]"),
+    positionCreateSide: root.querySelector("[data-position-side]"),
+    positionCreateSubmit: root.querySelector("[data-position-submit]"),
+    positionCreateSubmitLabel: root.querySelector("[data-position-submit-label]"),
+    positionCreateSubmitSpinner: root.querySelector("[data-position-submit-spinner]"),
+    positionCreateGeneralError: root.querySelector("[data-position-error-general]"),
+    positionCreateCurrencyError: root.querySelector("[data-position-error-currency]"),
+    positionCreateAmountError: root.querySelector("[data-position-error-amount]"),
+    positionCreateSideError: root.querySelector("[data-position-error-side]"),
   };
 
   let filterTimer = null;
   let currentPositions = normalizePositions(getState()?.positions);
+  let modalInstance = null;
+
+  const getModalInstance = () => {
+    if (!elements.positionCreateModal || typeof window === "undefined" || !window.bootstrap) {
+      return null;
+    }
+    if (modalInstance) {
+      return modalInstance;
+    }
+    modalInstance = window.bootstrap.Modal.getOrCreateInstance(elements.positionCreateModal, {
+      focus: true,
+    });
+    return modalInstance;
+  };
 
   const unsubscribe = subscribe((stateSnapshot, meta) => {
     const positions = normalizePositions(stateSnapshot?.positions);
@@ -46,6 +76,11 @@ export function renderPortfolioView(root) {
     toggleEmptyState(elements.emptyState, positions);
     updateSortIndicators(elements.sortButtons, positions);
     renderPaginationControls(elements, positions);
+    renderPositionCreateForm(
+      elements,
+      stateSnapshot?.positionCreate,
+      Boolean(stateSnapshot?.portfolioId)
+    );
 
     if (meta?.type === "positions_error" && positions.error) {
       showToast({
@@ -55,6 +90,90 @@ export function renderPortfolioView(root) {
       });
     }
   });
+
+  const clearPositionCreateForm = () => {
+    if (elements.positionCreateForm) {
+      elements.positionCreateForm.reset();
+    }
+    if (elements.positionCreateCurrency) {
+      elements.positionCreateCurrency.value = "";
+    }
+    if (elements.positionCreateAmount) {
+      elements.positionCreateAmount.value = "";
+    }
+    if (elements.positionCreateSide) {
+      elements.positionCreateSide.value = "LONG";
+    }
+  };
+
+  const onPositionCreateClick = () => {
+    clearPositionCreateForm();
+    resetPositionCreateState();
+    const modal = getModalInstance();
+    if (modal) {
+      modal.show();
+    }
+  };
+
+  const onModalShown = () => {
+    if (elements.positionCreateCurrency) {
+      elements.positionCreateCurrency.focus();
+      elements.positionCreateCurrency.select();
+    }
+  };
+
+  const onModalHidden = () => {
+    clearPositionCreateForm();
+    resetPositionCreateState();
+  };
+
+  const onCreateSubmit = async (event) => {
+    event.preventDefault();
+    const payload = {
+      currency_code: elements.positionCreateCurrency?.value,
+      amount: elements.positionCreateAmount?.value,
+      side: elements.positionCreateSide?.value,
+    };
+
+    try {
+      const created = await createPosition(payload);
+      showToast({
+        title: "Position added",
+        message: created
+          ? `Added ${created.currency_code} ${created.amount} (${created.side}).`
+          : "Position created successfully.",
+        variant: "success",
+      });
+
+      const modal = getModalInstance();
+      if (modal) {
+        modal.hide();
+      } else {
+        clearPositionCreateForm();
+        resetPositionCreateState();
+      }
+
+      refreshPositions().catch(() => {});
+      refreshData().catch(() => {});
+    } catch (error) {
+      if (error?.code === "portfolio_not_selected") {
+        showToast({
+          title: "Select a portfolio",
+          message: "Choose a portfolio before adding positions.",
+          variant: "warning",
+        });
+        return;
+      }
+
+      if (!error?.isValidationError) {
+        showToast({
+          title: error?.title || "Create position failed",
+          message: error?.message || "Unable to create position.",
+          variant: error?.isNetworkError ? "warning" : "danger",
+        });
+      }
+    }
+  };
 
   const onCurrencyInput = (event) => {
     const value = (event.target.value || "").toUpperCase();
@@ -125,6 +244,16 @@ export function renderPortfolioView(root) {
   if (elements.clearFiltersButton) {
     elements.clearFiltersButton.addEventListener("click", onClearFilters);
   }
+  if (elements.positionCreateButton) {
+    elements.positionCreateButton.addEventListener("click", onPositionCreateClick);
+  }
+  if (elements.positionCreateForm) {
+    elements.positionCreateForm.addEventListener("submit", onCreateSubmit);
+  }
+  if (elements.positionCreateModal) {
+    elements.positionCreateModal.addEventListener("shown.bs.modal", onModalShown);
+    elements.positionCreateModal.addEventListener("hidden.bs.modal", onModalHidden);
+  }
   elements.sortButtons.forEach((button) => {
     button.addEventListener("click", onSortButtonClick);
   });
@@ -154,6 +283,23 @@ export function renderPortfolioView(root) {
     if (elements.clearFiltersButton) {
       elements.clearFiltersButton.removeEventListener("click", onClearFilters);
     }
+    if (elements.positionCreateButton) {
+      elements.positionCreateButton.removeEventListener("click", onPositionCreateClick);
+    }
+    if (elements.positionCreateForm) {
+      elements.positionCreateForm.removeEventListener("submit", onCreateSubmit);
+    }
+    if (elements.positionCreateModal) {
+      elements.positionCreateModal.removeEventListener("shown.bs.modal", onModalShown);
+      elements.positionCreateModal.removeEventListener("hidden.bs.modal", onModalHidden);
+      if (typeof window !== "undefined" && window.bootstrap) {
+        const instance = window.bootstrap.Modal.getInstance(elements.positionCreateModal);
+        if (instance) {
+          instance.dispose();
+        }
+      }
+      modalInstance = null;
+    }
     elements.sortButtons.forEach((button) => {
       button.removeEventListener("click", onSortButtonClick);
     });
@@ -179,9 +325,13 @@ function template() {
             Inspect open positions with quick filters, sorting, and pagination.
           </p>
         </div>
-        <button class="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2" type="button" disabled>
+        <button
+          class="btn btn-primary shadow-sm d-flex align-items-center gap-2"
+          type="button"
+          data-position-create-trigger
+        >
           <i class="bi bi-plus-circle"></i>
-          Add Position (coming soon)
+          Add position
         </button>
       </header>
 
@@ -279,6 +429,89 @@ function template() {
         </div>
       </div>
     </section>
+
+    <div
+      class="modal fade"
+      id="positionCreateModal"
+      tabindex="-1"
+      aria-labelledby="positionCreateModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+          <form data-position-create-form novalidate>
+            <div class="modal-header">
+              <h2 class="modal-title fs-5" id="positionCreateModalLabel">Add position</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex flex-column gap-3">
+              <div
+                class="alert alert-danger d-none"
+                role="alert"
+                aria-live="assertive"
+                data-position-error-general
+              ></div>
+              <div class="form-floating">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="positionCurrencyInput"
+                  name="currency_code"
+                  maxlength="3"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                  placeholder="Currency"
+                  data-position-currency
+                />
+                <label for="positionCurrencyInput">Currency</label>
+                <div class="invalid-feedback d-none" data-position-error-currency></div>
+              </div>
+              <div class="form-floating">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="positionAmountInput"
+                  name="amount"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  placeholder="Amount"
+                  data-position-amount
+                />
+                <label for="positionAmountInput">Amount</label>
+                <div class="invalid-feedback d-none" data-position-error-amount></div>
+              </div>
+              <div class="form-floating">
+                <select class="form-select" id="positionSideSelect" name="side" data-position-side>
+                  <option value="LONG" selected>Long</option>
+                  <option value="SHORT">Short</option>
+                </select>
+                <label for="positionSideSelect">Side</label>
+                <div class="invalid-feedback d-none" data-position-error-side></div>
+              </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary d-inline-flex align-items-center gap-2"
+                data-position-submit
+              >
+                <span data-position-submit-label>Save position</span>
+                <span
+                  class="spinner-border spinner-border-sm d-none"
+                  role="status"
+                  aria-hidden="true"
+                  data-position-submit-spinner
+                ></span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -449,6 +682,112 @@ function updateSortIndicators(sortButtons, positions) {
           : "positions-sort-icon bi bi-caret-up-fill";
     }
   });
+}
+
+function renderPositionCreateForm(elements, snapshot, hasPortfolio) {
+  if (!elements) {
+    return;
+  }
+
+  const state = normalizePositionCreateSnapshot(snapshot);
+  const submitting = state.submitting;
+
+  if (elements.positionCreateButton) {
+    elements.positionCreateButton.disabled = submitting || !hasPortfolio;
+  }
+  if (elements.positionCreateCurrency) {
+    elements.positionCreateCurrency.disabled = submitting;
+  }
+  if (elements.positionCreateAmount) {
+    elements.positionCreateAmount.disabled = submitting;
+  }
+  if (elements.positionCreateSide) {
+    elements.positionCreateSide.disabled = submitting;
+  }
+  if (elements.positionCreateSubmit) {
+    elements.positionCreateSubmit.disabled = submitting;
+  }
+  if (elements.positionCreateSubmitLabel) {
+    elements.positionCreateSubmitLabel.textContent = submitting ? "Saving..." : "Save position";
+  }
+  if (elements.positionCreateSubmitSpinner) {
+    elements.positionCreateSubmitSpinner.classList.toggle("d-none", !submitting);
+  }
+
+  const fieldErrors = state.fieldErrors;
+  applyFieldError(
+    elements.positionCreateCurrency,
+    elements.positionCreateCurrencyError,
+    fieldErrors.currency
+  );
+  applyFieldError(
+    elements.positionCreateAmount,
+    elements.positionCreateAmountError,
+    fieldErrors.amount
+  );
+  applyFieldError(elements.positionCreateSide, elements.positionCreateSideError, fieldErrors.side);
+
+  const shouldShowGeneralError =
+    Boolean(state.error) && (!state.error.isValidationError || !hasFieldErrors(fieldErrors));
+  if (elements.positionCreateGeneralError) {
+    if (shouldShowGeneralError) {
+      elements.positionCreateGeneralError.textContent =
+        state.error?.message || "Unable to create position.";
+      elements.positionCreateGeneralError.classList.remove("d-none");
+    } else {
+      elements.positionCreateGeneralError.textContent = "";
+      elements.positionCreateGeneralError.classList.add("d-none");
+    }
+  }
+}
+
+function normalizePositionCreateSnapshot(snapshot) {
+  if (!snapshot) {
+    return {
+      submitting: false,
+      error: null,
+      fieldErrors: {},
+    };
+  }
+
+  return {
+    submitting: Boolean(snapshot.submitting),
+    error: snapshot.error ? { ...snapshot.error } : null,
+    fieldErrors: cloneSimpleFieldErrors(snapshot.fieldErrors),
+  };
+}
+
+function cloneSimpleFieldErrors(source) {
+  if (!source || typeof source !== "object") {
+    return {};
+  }
+  const result = {};
+  Object.entries(source).forEach(([field, messages]) => {
+    if (Array.isArray(messages)) {
+      result[field] = messages.map((message) => String(message));
+    } else if (messages != null) {
+      result[field] = [String(messages)];
+    }
+  });
+  return result;
+}
+
+function applyFieldError(input, feedback, messages) {
+  const hasError = Array.isArray(messages) && messages.length > 0;
+  if (input) {
+    input.classList.toggle("is-invalid", hasError);
+  }
+  if (feedback) {
+    feedback.textContent = hasError ? messages[0] : "";
+    feedback.classList.toggle("d-none", !hasError);
+  }
+}
+
+function hasFieldErrors(fieldErrors) {
+  if (!fieldErrors || typeof fieldErrors !== "object") {
+    return false;
+  }
+  return Object.values(fieldErrors).some((messages) => Array.isArray(messages) && messages.length);
 }
 
 function renderPaginationControls(elements, positions) {
