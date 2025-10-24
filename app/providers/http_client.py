@@ -60,14 +60,24 @@ class HTTPClient:
                 if attempt >= self._config.max_retries:
                     break
                 sleep_for = self._compute_backoff(attempt)
-                logger.warning(
-                    "HTTP request to %s failed (attempt %s/%s): %s. Retrying in %.2fs.",
-                    url,
-                    attempt,
-                    self._config.max_retries,
-                    exc,
-                    sleep_for,
-                )
+                if attempt == 1:
+                    logger.warning(
+                        "HTTP request to %s failed (attempt %s/%s): %s. Retrying in %.2fs.",
+                        url,
+                        attempt,
+                        self._config.max_retries,
+                        exc,
+                        sleep_for,
+                    )
+                else:
+                    logger.debug(
+                        "HTTP retry %s/%s for %s after error: %s. Next attempt in %.2fs.",
+                        attempt,
+                        self._config.max_retries,
+                        url,
+                        exc,
+                        sleep_for,
+                    )
                 time.sleep(sleep_for)
 
         raise HTTPClientError(f"Failed to fetch {url}: {last_error}") from last_error
