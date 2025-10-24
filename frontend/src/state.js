@@ -2,6 +2,9 @@ import { getJson, postJson } from "./api.js";
 
 export const TIMELINE_DAYS = 30;
 
+const VIEW_BASE_STORAGE_KEY = "fxrc:view-base";
+const VIEW_BASE_DEBOUNCE_MS = 300;
+
 const POSITION_SORT_FIELDS = ["currency", "amount", "side", "created_at"];
 const POSITION_DIRECTION_VALUES = ["asc", "desc"];
 const POSITION_SIDE_VALUES = ["LONG", "SHORT"];
@@ -18,7 +21,9 @@ const POSITIONS_DEFAULTS = {
   error: null,
 };
 
+let metricsRequestToken = 0;
 let positionsRequestToken = 0;
+let viewBaseRefreshTimer = null;
 
 const subscribers = new Set();
 
@@ -70,9 +75,12 @@ export function initState({ defaultPortfolioId, defaultViewBase } = {}) {
   if (defaultPortfolioId) {
     state.portfolioId = defaultPortfolioId;
   }
-  if (defaultViewBase) {
-    state.viewBase = defaultViewBase;
-  }
+  const storedBase = loadStoredViewBase();
+  const fallbackBase = normalizeViewBase(defaultViewBase);
+  const resolvedBase = storedBase || fallbackBase || state.viewBase;
+  state.viewBase = resolvedBase;
+  state.charts.timeline.viewBase = resolvedBase;
+  persistViewBase(resolvedBase);
 }
 
 export function getState() {
@@ -89,6 +97,8 @@ export async function refreshData() {
   if (!state.portfolioId) {
     return;
   }
+
+  const requestId = ++metricsRequestToken;
 
   updateState((draft) => {
     draft.metrics.loading = true;
@@ -111,6 +121,10 @@ export async function refreshData() {
       getJson(`/api/v1/metrics/portfolio/${state.portfolioId}/value/series?${timelineQuery}`),
     ]);
 
+    if (requestId !== metricsRequestToken) {
+      return;
+    }
+
     updateState((draft) => {
       draft.metrics.value = value;
       draft.metrics.pnl = pnl;
@@ -127,6 +141,10 @@ export async function refreshData() {
       draft.charts.timeline = buildTimelineChartData(timeline, TIMELINE_DAYS);
     });
   } catch (error) {
+    if (requestId !== metricsRequestToken) {
+      return;
+    }
+
     updateState((draft) => {
       const metricsError = toStateError(error, "Unable to load metrics.", "Metrics unavailable");
       const healthError = toStateError(
@@ -145,6 +163,37 @@ export async function refreshData() {
       draft.refresh.loading = false;
       draft.refresh.error = refreshError;
     });
+  }
+}
+
+function normalizeViewBase(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+}
+
+function loadStoredViewBase() {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return null;
+    }
+    const stored = window.localStorage.getItem(VIEW_BASE_STORAGE_KEY);
+    return normalizeViewBase(stored);
+  } catch {
+    return null;
+  }
+}
+
+function persistViewBase(value) {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return;
+    }
+    window.localStorage.setItem(VIEW_BASE_STORAGE_KEY, value);
+  } catch {
+    // ignore storage write failures
   }
 }
 
@@ -182,13 +231,31 @@ export async function triggerManualRefresh() {
 }
 
 export function setViewBase(newBase) {
-  if (!newBase || newBase === state.viewBase) {
+  const normalized = normalizeViewBase(newBase);
+  if (!normalized || normalized === state.viewBase) {
     return;
   }
   updateState((draft) => {
-    draft.viewBase = newBase;
+    draft.viewBase = normalized;
+    if (draft.charts?.timeline) {
+      draft.charts.timeline = {
+        ...draft.charts.timeline,
+        viewBase: normalized,
+      };
+    }
   });
-  refreshData();
+  persistViewBase(normalized);
+  scheduleMetricsRefresh();
+}
+
+function scheduleMetricsRefresh() {
+  if (viewBaseRefreshTimer) {
+    clearTimeout(viewBaseRefreshTimer);
+  }
+  viewBaseRefreshTimer = setTimeout(() => {
+    viewBaseRefreshTimer = null;
+    refreshData();
+  }, VIEW_BASE_DEBOUNCE_MS);
 }
 
 export function setPortfolioId(id) {

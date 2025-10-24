@@ -1,11 +1,11 @@
+import { renderExposureChart, destroyExposureChart } from "../charts/exposure.js";
+import { renderTimelineChart, destroyTimelineChart } from "../charts/timeline.js";
 import { subscribe, setViewBase, triggerManualRefresh } from "../state.js";
 import { showToast } from "../ui/toast.js";
 import { formatDateTimeLocal } from "../utils/datetime.js";
 import { formatCurrencyAmount, formatCurrencyNativeAmount } from "../utils/numeral.js";
-import { renderExposureChart, destroyExposureChart } from "../charts/exposure.js";
-import { renderTimelineChart, destroyTimelineChart } from "../charts/timeline.js";
 
-const VIEW_BASE_PATTERN = /^[A-Z]{3}$/;
+const VIEW_BASE_OPTIONS = ["USD", "EUR", "GBP", "TRY"];
 
 export function renderDashboardView(root) {
   if (!root) {
@@ -16,9 +16,7 @@ export function renderDashboardView(root) {
 
   const elements = {
     staleBanner: root.querySelector("[data-stale-banner]"),
-    viewBaseForm: root.querySelector("[data-view-base-form]"),
-    viewBaseInput: root.querySelector("[data-view-base-input]"),
-    viewBaseError: root.querySelector("[data-view-base-error]"),
+    viewBaseSelect: root.querySelector("[data-view-base-select]"),
     refreshButton: root.querySelector("[data-refresh-button]"),
     refreshStatus: root.querySelector("[data-refresh-status]"),
 
@@ -60,7 +58,8 @@ export function renderDashboardView(root) {
   let lastHealthError = null;
 
   const unsubscribe = subscribe((stateSnapshot) => {
-    syncViewBaseInput(elements.viewBaseInput, stateSnapshot.viewBase);
+    populateViewBaseSelect(elements.viewBaseSelect, stateSnapshot.viewBase);
+    syncViewBaseSelect(elements.viewBaseSelect, stateSnapshot.viewBase);
     renderRefreshControls(elements, stateSnapshot.refresh);
     renderStaleBanner(elements, stateSnapshot.health);
 
@@ -78,38 +77,8 @@ export function renderDashboardView(root) {
     }));
   });
 
-  const showViewBaseError = (message) => {
-    if (elements.viewBaseInput) {
-      elements.viewBaseInput.classList.add("is-invalid");
-    }
-    if (elements.viewBaseError) {
-      elements.viewBaseError.textContent = message;
-      elements.viewBaseError.classList.remove("d-none");
-    }
-  };
-
-  const clearViewBaseError = () => {
-    if (elements.viewBaseInput) {
-      elements.viewBaseInput.classList.remove("is-invalid");
-    }
-    if (elements.viewBaseError) {
-      elements.viewBaseError.classList.add("d-none");
-    }
-  };
-
-  const onViewBaseInput = (event) => {
-    event.target.value = (event.target.value || "").toUpperCase().slice(0, 3);
-    clearViewBaseError();
-  };
-
-  const onViewBaseSubmit = (event) => {
-    event.preventDefault();
-    const value = (elements.viewBaseInput?.value || "").trim().toUpperCase();
-    if (!VIEW_BASE_PATTERN.test(value)) {
-      showViewBaseError("Enter a 3-letter ISO currency code.");
-      return;
-    }
-    clearViewBaseError();
+  const onViewBaseChange = (event) => {
+    const value = (event.target.value || "").trim().toUpperCase();
     setViewBase(value);
   };
 
@@ -147,11 +116,8 @@ export function renderDashboardView(root) {
     });
   };
 
-  if (elements.viewBaseInput) {
-    elements.viewBaseInput.addEventListener("input", onViewBaseInput);
-  }
-  if (elements.viewBaseForm) {
-    elements.viewBaseForm.addEventListener("submit", onViewBaseSubmit);
+  if (elements.viewBaseSelect) {
+    elements.viewBaseSelect.addEventListener("change", onViewBaseChange);
   }
   if (elements.refreshButton) {
     elements.refreshButton.addEventListener("click", onRefreshClick);
@@ -159,11 +125,8 @@ export function renderDashboardView(root) {
 
   return () => {
     unsubscribe();
-    if (elements.viewBaseInput) {
-      elements.viewBaseInput.removeEventListener("input", onViewBaseInput);
-    }
-    if (elements.viewBaseForm) {
-      elements.viewBaseForm.removeEventListener("submit", onViewBaseSubmit);
+    if (elements.viewBaseSelect) {
+      elements.viewBaseSelect.removeEventListener("change", onViewBaseChange);
     }
     if (elements.refreshButton) {
       elements.refreshButton.removeEventListener("click", onRefreshClick);
@@ -184,26 +147,18 @@ function template() {
           </p>
         </div>
         <div class="d-flex flex-column flex-sm-row align-items-stretch gap-2">
-          <form class="d-flex gap-2" data-view-base-form>
-            <div class="form-floating">
-              <input
-                type="text"
-                class="form-control"
-                id="dashboardViewBase"
-                name="viewBase"
-                maxlength="3"
-                autocomplete="off"
-                autocapitalize="characters"
-                placeholder="Base"
-                data-view-base-input
-              />
-              <label for="dashboardViewBase">View base</label>
-              <div class="invalid-feedback d-none" data-view-base-error>
-                Enter a 3-letter ISO currency code.
-              </div>
-            </div>
-            <button type="submit" class="btn btn-outline-primary">Apply</button>
-          </form>
+          <div class="form-floating">
+            <select
+              class="form-select"
+              id="dashboardViewBase"
+              name="viewBase"
+              data-view-base-select
+              aria-label="Select view base currency"
+            >
+              ${renderViewBaseOptions()}
+            </select>
+            <label for="dashboardViewBase">View in</label>
+          </div>
           <button type="button" class="btn btn-primary" data-refresh-button>
             <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>
             Refresh Rates
@@ -329,15 +284,36 @@ function template() {
   `;
 }
 
-function syncViewBaseInput(input, viewBase) {
-  if (!input) {
+function populateViewBaseSelect(select, viewBase) {
+  if (!select) {
     return;
   }
   const normalized = (viewBase || "").toUpperCase();
-  if (document.activeElement === input) {
+  const uniqueOptions = Array.from(new Set([...VIEW_BASE_OPTIONS, normalized].filter(Boolean)));
+  const key = uniqueOptions.join("|");
+  if (select.dataset.optionsKey !== key) {
+    select.innerHTML = uniqueOptions
+      .map((code) => `<option value="${code}">${code}</option>`)
+      .join("");
+    select.dataset.optionsKey = key;
+  }
+}
+
+function syncViewBaseSelect(select, viewBase) {
+  if (!select) {
     return;
   }
-  input.value = normalized;
+  const normalized = (viewBase || "").toUpperCase();
+  const options = Array.from(select.options);
+  if (normalized && options.some((option) => option.value === normalized)) {
+    select.value = normalized;
+  } else if (options.length > 0) {
+    select.value = options[0].value;
+  }
+}
+
+function renderViewBaseOptions() {
+  return VIEW_BASE_OPTIONS.map((code) => `<option value="${code}">${code}</option>`).join("");
 }
 
 function renderRefreshControls(elements, refresh) {
