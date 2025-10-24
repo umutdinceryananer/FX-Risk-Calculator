@@ -23,3 +23,6 @@ typecheck:
 
 test:
 	pytest
+
+release-check:
+	python scripts/release_check.py

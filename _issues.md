@@ -104,7 +104,7 @@ Polish release: verify health, update docs, close redundant tasks.
 
 # Issue 42: Environment defaults (Exchange ΓåÆ ECB)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
