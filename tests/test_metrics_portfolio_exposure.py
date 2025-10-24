@@ -7,11 +7,14 @@ import pytest
 
 from app.database import get_session
 from app.models import FxRate, Portfolio, Position, PositionType
+from app.services.currency_registry import registry
 
 
 @pytest.fixture()
 def seeded_portfolio(app):
     with app.app_context():
+        registry.update({"USD", "EUR", "GBP", "JPY", "TRY"})
+
         session = get_session()
 
         portfolio = Portfolio(name="Exposure Book", base_currency_code="USD")
@@ -113,6 +116,17 @@ def test_exposure_with_custom_base_and_topn(client, seeded_portfolio):
     assert payload["unpriced_reasons"] == {}
 
 
+def test_exposure_with_gbp_base(client, seeded_portfolio):
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/exposure?base=GBP")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["view_base"] == "GBP"
+    exposures = {item["currency_code"]: item for item in payload["exposures"]}
+    assert Decimal(exposures["USD"]["base_equivalent"]) == Decimal("90.00")
+    assert Decimal(exposures["JPY"]["base_equivalent"]) == Decimal("5.00")
+    assert payload["unpriced_reasons"] == {}
+
+
 def test_exposure_missing_rates(client, app, seeded_portfolio):
     with app.app_context():
         session = get_session()
@@ -139,7 +153,9 @@ def test_exposure_missing_portfolio(client):
 def test_exposure_unknown_currency_reason(client, app, seeded_portfolio):
     with app.app_context():
         session = get_session()
-        session.query(Position).filter(Position.currency_code == "JPY").update({"currency_code": "ZZZ"})
+        session.query(Position).filter(Position.currency_code == "JPY").update(
+            {"currency_code": "ZZZ"}
+        )
         session.commit()
 
     response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/exposure")
@@ -148,3 +164,12 @@ def test_exposure_unknown_currency_reason(client, app, seeded_portfolio):
     assert payload["unpriced"] == 1
     reasons = payload["unpriced_reasons"]
     assert set(reasons.get("unknown_currency", [])) == {"ZZZ"}
+
+
+def test_exposure_rejects_missing_base_rate(client, seeded_portfolio):
+    response = client.get(f"/api/v1/metrics/portfolio/{seeded_portfolio}/exposure?base=TRY")
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert payload["view_base"] == "TRY"
+    assert payload["field"] == "base"
+    assert payload["as_of"] == "2025-10-17T12:00:00+00:00"

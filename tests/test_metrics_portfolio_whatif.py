@@ -7,11 +7,14 @@ import pytest
 
 from app.database import get_session
 from app.models import FxRate, Portfolio, Position, PositionType
+from app.services.currency_registry import registry
 
 
 @pytest.fixture()
 def seeded_portfolio(app):
     with app.app_context():
+        registry.update({"USD", "EUR", "GBP", "TRY"})
+
         session = get_session()
 
         portfolio = Portfolio(name="WhatIf Book", base_currency_code="USD")
@@ -135,4 +138,14 @@ def test_portfolio_whatif_missing_portfolio(client):
     assert response.status_code == 404
 
 
-
+def test_portfolio_whatif_rejects_missing_base_rate(client, seeded_portfolio):
+    payload = {"currency": "EUR", "shock_pct": "5"}
+    response = client.post(
+        f"/api/v1/metrics/portfolio/{seeded_portfolio}/whatif?base=TRY",
+        json=payload,
+    )
+    assert response.status_code == 422
+    data = response.get_json()
+    assert data["view_base"] == "TRY"
+    assert data["field"] == "base"
+    assert data["as_of"] == "2025-10-16T12:00:00+00:00"

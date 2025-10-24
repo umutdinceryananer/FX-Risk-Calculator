@@ -7,11 +7,14 @@ import pytest
 
 from app.database import get_session
 from app.models import FxRate, Portfolio, Position, PositionType
+from app.services.currency_registry import registry
 
 
 @pytest.fixture()
 def value_series_portfolio(app):
     with app.app_context():
+        registry.update({"USD", "EUR", "GBP", "TRY"})
+
         session = get_session()
 
         portfolio = Portfolio(name="Timeline Book", base_currency_code="USD")
@@ -102,9 +105,7 @@ def test_value_series_custom_base_and_days(client, value_series_portfolio):
 
 
 def test_value_series_validation(client, value_series_portfolio):
-    response = client.get(
-        f"/api/v1/metrics/portfolio/{value_series_portfolio}/value/series?days=0"
-    )
+    response = client.get(f"/api/v1/metrics/portfolio/{value_series_portfolio}/value/series?days=0")
     assert response.status_code == 422
 
 
@@ -119,10 +120,18 @@ def test_value_series_empty_positions(app, client, value_series_portfolio):
         session.query(Position).delete()
         session.commit()
 
-    response = client.get(
-        f"/api/v1/metrics/portfolio/{value_series_portfolio}/value/series"
-    )
+    response = client.get(f"/api/v1/metrics/portfolio/{value_series_portfolio}/value/series")
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["series"] == []
 
+
+def test_value_series_rejects_missing_base_rate(client, value_series_portfolio):
+    response = client.get(
+        f"/api/v1/metrics/portfolio/{value_series_portfolio}/value/series?base=TRY"
+    )
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert payload["view_base"] == "TRY"
+    assert payload["field"] == "base"
+    assert payload["as_of"] == "2025-10-17T16:30:00+00:00"

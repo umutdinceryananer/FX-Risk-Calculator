@@ -117,7 +117,12 @@ def calculate_portfolio_value(
             as_of=None,
         )
 
-    effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+    effective_rates = _rates_in_view_base(
+        rates_map,
+        canonical_base,
+        resolved_view_base,
+        as_of=as_of,
+    )
 
     total, priced, unpriced, reason_map = _portfolio_value_from_rates(
         positions,
@@ -190,18 +195,44 @@ def _latest_rates(session, canonical_base: str) -> tuple[Dict[str, Decimal], Opt
     return rates_map.get(normalized_ts, {}), latest_timestamp
 
 
+def _missing_view_base_error(view_base: str, as_of: Optional[datetime]) -> ValidationError:
+    as_of_iso = _to_utc_datetime(as_of).isoformat() if as_of is not None else None
+    return ValidationError(
+        "FX rates are unavailable for the requested base currency.",
+        payload={
+            "field": "base",
+            "view_base": normalize_currency(view_base),
+            "as_of": as_of_iso,
+        },
+    )
+
+
 def _rates_in_view_base(
     rates_map: Dict[str, Decimal],
     canonical_base: str,
     view_base: str,
+    *,
+    as_of: Optional[datetime] = None,
 ) -> Dict[str, Decimal]:
     canonical_norm = normalize_currency(canonical_base)
     view_norm = normalize_currency(view_base)
 
+    normalized_rates: Dict[str, Decimal] = {}
+    for code, value in rates_map.items():
+        normalized_rates[normalize_currency(code)] = to_decimal(value)
+    normalized_rates.setdefault(canonical_norm, Decimal("1"))
+
+    if view_norm != canonical_norm and view_norm not in normalized_rates:
+        raise _missing_view_base_error(view_norm, as_of)
+
     if view_norm == canonical_norm:
-        source_rates = rates_map
+        source_rates = dict(normalized_rates)
     else:
-        source_rates = rebase_rates(rates_map, view_norm)
+        try:
+            source_rates = rebase_rates(normalized_rates, view_norm)
+        except RebaseError as exc:
+            raise _missing_view_base_error(view_norm, as_of) from exc
+        source_rates = dict(source_rates)
         source_rates[view_norm] = Decimal("1")
 
     context = get_decimal_context()
@@ -308,7 +339,12 @@ def calculate_currency_exposure(
             unpriced_reasons=_serialize_reason_map(reason_map),
         )
 
-    effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+    effective_rates = _rates_in_view_base(
+        rates_map,
+        canonical_base,
+        resolved_view_base,
+        as_of=as_of,
+    )
 
     totals: Dict[str, Dict[str, Decimal]] = {}
     priced = 0
@@ -510,8 +546,18 @@ def calculate_daily_pnl(
             unpriced_reasons_previous=_serialize_reason_map(reason_map_previous),
         )
 
-    effective_latest = _rates_in_view_base(latest_rates, canonical_base, resolved_view_base)
-    effective_previous = _rates_in_view_base(previous_rates, canonical_base, resolved_view_base)
+    effective_latest = _rates_in_view_base(
+        latest_rates,
+        canonical_base,
+        resolved_view_base,
+        as_of=latest_timestamp,
+    )
+    effective_previous = _rates_in_view_base(
+        previous_rates,
+        canonical_base,
+        resolved_view_base,
+        as_of=previous_timestamp,
+    )
 
     value_current, priced_current, unpriced_current, reason_map_current = (
         _portfolio_value_from_rates(
@@ -613,7 +659,12 @@ def calculate_portfolio_value_series(
         if not rates_map:
             continue
 
-        effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+        effective_rates = _rates_in_view_base(
+            rates_map,
+            canonical_base,
+            resolved_view_base,
+            as_of=normalized_timestamp,
+        )
         value, priced, _, _ = _portfolio_value_from_rates(
             positions,
             resolved_view_base,
@@ -684,7 +735,12 @@ def simulate_currency_shock(
             payload={"field": "rates"},
         )
 
-    effective_rates = _rates_in_view_base(rates_map, canonical_base, resolved_view_base)
+    effective_rates = _rates_in_view_base(
+        rates_map,
+        canonical_base,
+        resolved_view_base,
+        as_of=as_of,
+    )
 
     current_value, priced, unpriced, reason_map_current = _portfolio_value_from_rates(
         positions,

@@ -56,7 +56,7 @@ Enable switching the portfolio view base from the UI without persisting multi-ba
 
 # Issue 43: Final review & cleanup
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 

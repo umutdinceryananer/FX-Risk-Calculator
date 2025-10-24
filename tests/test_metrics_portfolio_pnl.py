@@ -7,11 +7,14 @@ import pytest
 
 from app.database import get_session
 from app.models import FxRate, Portfolio, Position, PositionType
+from app.services.currency_registry import registry
 
 
 @pytest.fixture()
 def seeded_portfolio(app):
     with app.app_context():
+        registry.update({"USD", "EUR", "GBP", "TRY"})
+
         session = get_session()
 
         portfolio = Portfolio(name="PnL Book", base_currency_code="USD")
@@ -116,3 +119,13 @@ def test_daily_pnl_missing_rates(client, app, seeded_portfolio):
 def test_daily_pnl_missing_portfolio(client):
     response = client.get("/api/v1/metrics/portfolio/999/pnl/daily")
     assert response.status_code == 404
+
+
+def test_daily_pnl_rejects_missing_base_rate(client, seeded_portfolio):
+    portfolio_id, now, _ = seeded_portfolio
+    response = client.get(f"/api/v1/metrics/portfolio/{portfolio_id}/pnl/daily?base=TRY")
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert payload["view_base"] == "TRY"
+    assert payload["field"] == "base"
+    assert payload["as_of"] == now.isoformat()
