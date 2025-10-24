@@ -63,7 +63,7 @@ blueprints.
 - Optional dependency `python-dotenv` auto-loads `.env` when present.
 - Database migrations are managed with Alembic. Ensure Alembic is installed and
   run `alembic upgrade head` to apply the latest schema.
-- `FX_RATE_PROVIDER` switches between data sources (`mock`, `exchangerate_host`, or `frankfurter_ecb`).
+- `FX_RATE_PROVIDER` switches between data sources (`mock`, `exchangerate_host`, or `ecb`).
   ExchangeRate.host is keyless; the ECB fallback uses Frankfurter (`FRANKFURTER_API_BASE_URL`).
 - `FX_FALLBACK_PROVIDER` optionally selects a secondary provider when the primary fails.
 - `REQUEST_TIMEOUT_SECONDS`, `RATES_API_*`, and `FRANKFURTER_API_*` share the unified HTTP client

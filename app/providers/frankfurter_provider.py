@@ -21,7 +21,7 @@ from app.services.fx_conversion import RebaseError, rebase_rates
 class FrankfurterProvider(BaseRateProvider):
     """Provider that fetches ECB rates via the Frankfurter API."""
 
-    name = "frankfurter_ecb"
+    name = "ecb"
 
     def __init__(self, client: FrankfurterClient, canonical_base: str = "USD") -> None:
         self._client = client

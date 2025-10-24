@@ -32,7 +32,9 @@ def _default_factories() -> Iterable[tuple[str, ProviderFactory]]:
         return FrankfurterProvider.from_config(config)
 
     factories.append((ExchangeRateHostProvider.name, exchangerate_factory))
+    factories.append(("exchangerate_host", exchangerate_factory))
     factories.append((FrankfurterProvider.name, frankfurter_factory))
+    factories.append(("frankfurter_ecb", frankfurter_factory))
 
     return factories
 
@@ -96,4 +98,3 @@ def reset_registry(default_factories: Iterable[tuple[str, ProviderFactory]] | No
 
 
 reset_registry()
-

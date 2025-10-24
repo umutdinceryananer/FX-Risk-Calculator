@@ -19,7 +19,7 @@ from .exchangerate_client import (
 class ExchangeRateHostProvider(BaseRateProvider):
     """Provider that fetches data from ExchangeRate.host."""
 
-    name = "exchangerate_host"
+    name = "exchange"
     config_prefix = "RATES_API_"
 
     def __init__(self, client: ExchangeRateHostClient) -> None:
@@ -107,7 +107,9 @@ class ExchangeRateHostProvider(BaseRateProvider):
     def _normalize_base(self, value: str) -> str:
         normalized = self._normalize_symbol(value)
         if not registry.is_allowed(normalized):
-            raise ProviderError(f"Base currency '{normalized}' is not in the allowed currency registry.")
+            raise ProviderError(
+                f"Base currency '{normalized}' is not in the allowed currency registry."
+            )
         return normalized
 
     @staticmethod
@@ -132,4 +134,3 @@ class ExchangeRateHostProvider(BaseRateProvider):
     @staticmethod
     def _current_date() -> date:
         return datetime.now(UTC).date()
-
