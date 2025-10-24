@@ -184,8 +184,9 @@ Validation rules:
     "as_of": "2025-10-16T12:00:00+00:00"
   }
   ```
-  - `value` excludes unpriced positions; `unpriced` counts positions missing rates, and `priced` gives the number successfully valued.
-  - `as_of` reflects the timestamp of the latest canonical FX snapshot used for the calculation.
+    - `value` excludes unpriced positions; `unpriced` counts positions missing rates, and `priced` gives the number successfully valued.
+    - `as_of` reflects the timestamp of the latest canonical FX snapshot used for the calculation.
+    - Requests that reference a view base without a corresponding FX rate return **HTTP 422** with `field: "base"`, the requested `view_base`, and the snapshot `as_of` timestamp so clients can surface actionable errors.
 
 - `GET /api/v1/metrics/portfolio/<portfolio_id>/exposure?top_n=<N>&base=<CCY>` groups exposure by currency (tail aggregated into `OTHER` when `top_n` is reached) in the requested base.
   ```bash
@@ -254,7 +255,7 @@ Use `python scripts/perf_sanity_check.py` to seed a ~2k-position dataset and pri
 
 1. `make release-check` ? runs lint, type checks, test suite, and a quick `/health` smoke test.
 2. `flask --app app.cli.seed_demo seed-demo` to pre-load the demo portfolio before recording or demoing.
-3. Start the server (`python run.py`) and verify the dashboard at http://127.0.0.1:5000#/dashboard renders charts with the seeded data.
+3. Start the server (`python run.py`) and verify the dashboard at http://127.0.0.1:5000#/dashboard renders charts with the seeded data. Use the **View in** dropdown to switch base currencies; the selection persists between reloads.
 4. Optionally export fresh Postman results for the release notes.
 
 ## Troubleshooting
