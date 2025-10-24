@@ -152,7 +152,7 @@ Default provider order and env validation.
 
 # Issue 41: Frontend error states
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
