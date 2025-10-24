@@ -10,6 +10,8 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
+from app.services.currency_registry import registry
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
 
@@ -29,9 +31,7 @@ def _table_exists(engine, table_name: str) -> bool:
     try:
         with engine.connect() as connection:
             result = connection.execute(
-                text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name=:table_name"
-                ),
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name=:table_name"),
                 {"table_name": table_name},
             )
             return result.first() is not None
@@ -42,17 +42,22 @@ def _table_exists(engine, table_name: str) -> bool:
 def test_alembic_upgrade_and_downgrade(alembic_config, tmp_path):
     """Ensure migrations upgrade and downgrade cleanly on a blank database."""
 
-    command.upgrade(alembic_config, "head")
+    try:
+        command.upgrade(alembic_config, "head")
 
-    engine = create_engine(alembic_config.get_main_option("sqlalchemy.url"))
-    assert _table_exists(engine, "currencies")
-    assert _table_exists(engine, "portfolios")
-    assert _table_exists(engine, "fx_rates")
-    assert _table_exists(engine, "positions")
+        engine = create_engine(alembic_config.get_main_option("sqlalchemy.url"))
+        assert _table_exists(engine, "currencies")
+        assert _table_exists(engine, "portfolios")
+        assert _table_exists(engine, "fx_rates")
+        assert _table_exists(engine, "positions")
 
-    command.downgrade(alembic_config, "base")
+        command.downgrade(alembic_config, "base")
 
-    assert not _table_exists(engine, "currencies")
-    assert not _table_exists(engine, "portfolios")
-    assert not _table_exists(engine, "fx_rates")
-    assert not _table_exists(engine, "positions")
+        assert not _table_exists(engine, "currencies")
+        assert not _table_exists(engine, "portfolios")
+        assert not _table_exists(engine, "fx_rates")
+        assert not _table_exists(engine, "positions")
+    finally:
+        # Restore latest schema for subsequent tests that share the same database.
+        command.upgrade(alembic_config, "head")
+        registry.load()

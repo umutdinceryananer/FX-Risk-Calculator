@@ -26,9 +26,17 @@ def refresh_rates() -> Response:
 
     throttle_seconds = int(app.config.get("REFRESH_THROTTLE_SECONDS", DEFAULT_THROTTLE_SECONDS))
     throttle_seconds = max(throttle_seconds, 0)
+    previous_window = state.get("throttle_window")
 
     throttle_until = state.get("throttle_until")
-    if throttle_seconds > 0 and isinstance(throttle_until, datetime) and throttle_until > now:
+    window_matches = previous_window is None or previous_window == throttle_seconds
+
+    if (
+        throttle_seconds > 0
+        and window_matches
+        and isinstance(throttle_until, datetime)
+        and throttle_until > now
+    ):
         retry_after = max(int((throttle_until - now).total_seconds()), 1)
         payload = {
             "message": "Refresh throttled. Try again later.",
@@ -37,7 +45,7 @@ def refresh_rates() -> Response:
         return jsonify(payload), 429
 
     last_success = state.get("last_success")
-    if throttle_seconds > 0 and isinstance(last_success, datetime):
+    if throttle_seconds > 0 and window_matches and isinstance(last_success, datetime):
         next_allowed_at = last_success + timedelta(seconds=throttle_seconds)
         if next_allowed_at > now:
             state["throttle_until"] = next_allowed_at
@@ -67,6 +75,7 @@ def refresh_rates() -> Response:
         state["throttle_until"] = now + timedelta(seconds=throttle_seconds)
     else:
         state.pop("throttle_until", None)
+    state["throttle_window"] = throttle_seconds
     persist_snapshot(snapshot)
     state["last_snapshot"] = {
         "source": snapshot.source,

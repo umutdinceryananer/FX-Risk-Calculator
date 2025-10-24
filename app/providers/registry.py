@@ -82,7 +82,8 @@ def init_provider(app) -> BaseRateProvider:
     """Attach the configured provider to the Flask app."""
 
     provider_name = app.config.get("FX_RATE_PROVIDER")
-    provider = get_provider(provider_name)
+    with app.app_context():
+        provider = get_provider(provider_name)
     app.extensions["rate_provider"] = provider
     return provider
 

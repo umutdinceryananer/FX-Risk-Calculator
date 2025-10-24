@@ -38,6 +38,7 @@ def app(tmp_path_factory: pytest.TempPathFactory) -> Iterator:
 
     flask_app = create_app("development")
     flask_app.config.update(TESTING=True)
+    flask_app.config["SCHEDULER_ENABLED"] = False
 
     yield flask_app
 

@@ -4,7 +4,7 @@ FX Risk Calculator is a Flask-based backend that stores portfolios and FX positi
 
 # Issue 44: Base selection (UI + API rebase plumbing)
 
-- State: OPEN
+- State: CLOSED
 
 - Author: umutdinceryananer
 
