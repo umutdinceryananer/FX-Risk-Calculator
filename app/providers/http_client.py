@@ -84,10 +84,10 @@ class HTTPClient:
         raise HTTPClientError(f"Failed to fetch {url}: {last_error}") from last_error
 
     def _compute_backoff(self, attempt: int) -> float:
-        base = self._config.backoff_seconds * (2 ** (attempt - 1))
-        jitter = random.uniform(-self._config.backoff_jitter, self._config.backoff_jitter)
+        base: float = self._config.backoff_seconds * (2 ** (attempt - 1))
+        jitter: float = random.uniform(-self._config.backoff_jitter, self._config.backoff_jitter)
         delay = max(base + jitter, 0.0)
-        return delay
+        return float(delay)
 
     def _build_url(self, path: str) -> str:
         base = self._config.base_url.rstrip("/")
