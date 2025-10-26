@@ -1,6 +1,10 @@
 # FX Risk Calculator
 
+![CI](https://img.shields.io/github/actions/workflow/status/umutdinceryananer/FX-Risk-Calculator/ci.yml?label=CI&branch=main)
 ![Coverage](coverage.svg)
+![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+![Type Checking](https://img.shields.io/badge/mypy-configured-2ea44f.svg)
+![License](https://img.shields.io/github/license/umutdinceryananer/FX-Risk-Calculator)
 
 Lightweight Flask service scaffold for monitoring FX risk. The project uses an
 application factory pattern with environment-driven configuration and modular
@@ -41,19 +45,18 @@ blueprints.
 ## Architecture Overview
 ```mermaid
 flowchart LR
-    user([Portfolio user]) --> ui[Frontend SPA (Vite)]
-    ui --> state[State manager<br/>(frontend/src/state.js)]
-    state -->|REST calls| api[Flask API<br/>(Flask-Smorest blueprints)]
-    api --> services[Service layer<br/>(app/services/*)]
+    user(["Portfolio user"]) --> ui["Frontend SPA\n(Vite)"]
+    ui --> state["State manager\n(frontend/src/state.js)"]
+    state -->|"REST calls"| api["Flask API\n(Flask-Smorest blueprints)"]
+    api --> services["Service layer\n(app/services/*)"]
     services --> db[(SQLite / Postgres)]
-    services --> orchestrator[FX orchestrator<br/>+ rate store]
-    orchestrator --> providers[Rate providers<br/>(ExchangeRate.host, ECB, mock)]
-    orchestrator <-->|scheduled refresh| scheduler[APScheduler jobs]
-    services --> metrics[Metrics calculators<br/>(portfolio_metrics.py)]
-    services --> api
+    services --> orchestrator["FX orchestrator\n+ rate store"]
+    orchestrator --> providers["Rate providers\n(ExchangeRate.host, ECB, mock)"]
+    orchestrator <-->|"Scheduled refresh"| scheduler["APScheduler jobs"]
+    services --> metrics["Metrics calculators\n(portfolio_metrics.py)"]
     api --> state
-    cli[CLI & scripts<br/>(backfill, seed)] --> services
-    docs[Docs & Postman] -. reference .-> user
+    cli["CLI & scripts\n(backfill, seed)"] --> services
+    docs["Docs & Postman"] -.-> user
 ```
 
 ## Local Data & Seeding
