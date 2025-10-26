@@ -38,6 +38,24 @@ blueprints.
    ```
    The API will listen on `http://127.0.0.1:5000` by default.
 
+## Architecture Overview
+```mermaid
+flowchart LR
+    user([Portfolio user]) --> ui[Frontend SPA (Vite)]
+    ui --> state[State manager<br/>(frontend/src/state.js)]
+    state -->|REST calls| api[Flask API<br/>(Flask-Smorest blueprints)]
+    api --> services[Service layer<br/>(app/services/*)]
+    services --> db[(SQLite / Postgres)]
+    services --> orchestrator[FX orchestrator<br/>+ rate store]
+    orchestrator --> providers[Rate providers<br/>(ExchangeRate.host, ECB, mock)]
+    orchestrator <-->|scheduled refresh| scheduler[APScheduler jobs]
+    services --> metrics[Metrics calculators<br/>(portfolio_metrics.py)]
+    services --> api
+    api --> state
+    cli[CLI & scripts<br/>(backfill, seed)] --> services
+    docs[Docs & Postman] -. reference .-> user
+```
+
 ## Local Data & Seeding
 - Run database migrations before first use: `alembic upgrade head`. The initial
   revision seeds the currency registry so validation works out of the box.
