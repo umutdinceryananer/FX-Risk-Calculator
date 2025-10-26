@@ -8,7 +8,7 @@ import time
 import uuid
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from flask import g, has_request_context, request
 from werkzeug.exceptions import HTTPException
@@ -41,6 +41,32 @@ RESERVED_ATTRS = {
     "message",
     "asctime",
 }
+
+
+class RequestLogPayload(TypedDict, total=False):
+    event: str
+    route: str
+    method: str
+    status: int
+    duration_ms: float
+    request_id: str
+    path: str
+    source: str
+    stale: bool
+    error: str
+    client_ip: str
+
+
+class ProviderLogPayload(TypedDict, total=False):
+    event: str
+    provider: str
+    base: str
+    status: str
+    duration_ms: float
+    request_id: str | None
+    source: str
+    stale: bool
+    error: str
 
 
 class JSONLogFormatter(logging.Formatter):
@@ -170,25 +196,27 @@ def _build_request_log_extra(
     request_id: str | None,
     duration_ms: float | None,
     error: str | None,
-) -> dict[str, Any]:
+) -> RequestLogPayload:
     route = request.url_rule.rule if request.url_rule else request.path
-    payload: dict[str, Any] = {
+    payload: RequestLogPayload = {
         "event": event,
         "route": route,
         "method": request.method,
         "status": status,
-        "duration_ms": round(duration_ms, 3) if duration_ms is not None else None,
-        "request_id": request_id,
         "path": request.path,
         "source": "api",
         "stale": False,
     }
+    if duration_ms is not None:
+        payload["duration_ms"] = round(duration_ms, 3)
+    if request_id:
+        payload["request_id"] = request_id
     if error:
         payload["error"] = error
     if request.remote_addr:
         payload["client_ip"] = request.remote_addr
 
-    return {key: value for key, value in payload.items() if value is not None}
+    return payload
 
 
 def _extract_extras(record_dict: dict[str, Any]) -> dict[str, Any]:
@@ -243,20 +271,21 @@ def provider_log_extra(
     duration_ms: float | None,
     stale: bool,
     error: str | None = None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+) -> ProviderLogPayload:
+    payload: ProviderLogPayload = {
         "event": event,
         "provider": provider,
         "base": base,
         "status": status,
-        "duration_ms": round(duration_ms, 3) if duration_ms is not None else None,
-        "request_id": _current_request_id(),
         "source": provider,
         "stale": stale,
     }
+    if duration_ms is not None:
+        payload["duration_ms"] = round(duration_ms, 3)
+    payload["request_id"] = _current_request_id()
     if error:
         payload["error"] = error
-    return {key: value for key, value in payload.items() if value is not None}
+    return payload
 
 
 def _current_request_id() -> str | None:

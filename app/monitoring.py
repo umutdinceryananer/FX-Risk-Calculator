@@ -6,23 +6,28 @@ import logging
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from time import perf_counter
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from flask import Flask, current_app, g
+
+
+class MetadataFactory(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> Mapping[str, Any] | None: ...
+
 
 LOG_EVENT_NAME = "performance.timing"
 CONFIG_ENABLED_KEY = "TIMING_LOGS_ENABLED"
 CONFIG_THRESHOLD_KEY = "TIMING_MIN_DURATION_MS"
 
 
-def _is_enabled(app) -> bool:
+def _is_enabled(app: Flask) -> bool:
     value = app.config.get(CONFIG_ENABLED_KEY, False)
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _threshold_ms(app) -> float | None:
+def _threshold_ms(app: Flask) -> float | None:
     value = app.config.get(CONFIG_THRESHOLD_KEY)
     if value is None:
         return None
@@ -112,7 +117,7 @@ def timed_operation(
 def timed(
     event: str,
     *,
-    metadata_factory: Callable[..., Mapping[str, Any] | None] | None = None,
+    metadata_factory: MetadataFactory | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator variant of ``timed_operation`` for function instrumentation."""
 
