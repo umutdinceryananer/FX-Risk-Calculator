@@ -53,9 +53,9 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          coverage run -m pytest
+          pytest
           coverage xml -o coverage.xml
-          coverage-badge -o coverage.svg
+          coverage-badge -f -o coverage.svg
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
