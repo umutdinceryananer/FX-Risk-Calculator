@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, date
+from datetime import UTC, date, datetime
 from decimal import Decimal, localcontext
-from typing import DefaultDict, Dict, Iterable, List, Mapping, Optional, Set, Tuple
 
 from flask import current_app
 from sqlalchemy import desc
@@ -15,19 +15,18 @@ from sqlalchemy.orm import load_only
 from app.database import get_session
 from app.errors import APIError, ValidationError
 from app.models import FxRate, Portfolio, Position
+from app.services.currency_registry import registry
 from app.services.fx_conversion import (
     RebaseError,
     convert_amount,
     convert_position_amount,
     get_decimal_context,
     normalize_currency,
+    quantize_amount,
     rebase_rates,
     to_decimal,
-    quantize_amount,
 )
 from app.validation import validate_currency_code
-from app.services.currency_registry import registry
-
 
 UNPRICED_REASON_MISSING_RATE = "missing_rate"
 UNPRICED_REASON_UNKNOWN_CURRENCY = "unknown_currency"
@@ -43,8 +42,8 @@ class PortfolioValueResult:
     value: Decimal
     priced: int
     unpriced: int
-    unpriced_reasons: Dict[str, List[str]]
-    as_of: Optional[datetime]
+    unpriced_reasons: dict[str, list[str]]
+    as_of: datetime | None
 
 
 @dataclass(frozen=True)
@@ -58,10 +57,10 @@ class PortfolioValueSeriesResult:
     portfolio_id: int
     portfolio_base: str
     view_base: str
-    series: List[PortfolioValueSeriesPoint]
+    series: list[PortfolioValueSeriesPoint]
 
 
-def _fetch_positions(session, portfolio_id: int) -> List[Position]:
+def _fetch_positions(session, portfolio_id: int) -> list[Position]:
     """Return portfolio positions with only the required columns loaded."""
 
     return (
@@ -73,12 +72,12 @@ def _fetch_positions(session, portfolio_id: int) -> List[Position]:
 
 
 def calculate_portfolio_value(
-    portfolio_id: int, *, view_base: Optional[str] = None
+    portfolio_id: int, *, view_base: str | None = None
 ) -> PortfolioValueResult:
     """Compute aggregate portfolio value in the requested base currency."""
 
     session = get_session()
-    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    portfolio: Portfolio | None = session.get(Portfolio, portfolio_id)
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
@@ -147,13 +146,13 @@ def _rates_for_timestamps(
     session,
     canonical_base: str,
     timestamps: Iterable[datetime],
-) -> Dict[datetime, Dict[str, Decimal]]:
+) -> dict[datetime, dict[str, Decimal]]:
     base_code = normalize_currency(canonical_base)
     ordered_lookup = list(dict.fromkeys(timestamps))
     if not ordered_lookup:
         return {}
 
-    grouped: Dict[datetime, Dict[str, Decimal]] = {
+    grouped: dict[datetime, dict[str, Decimal]] = {
         _to_utc_datetime(ts): {} for ts in ordered_lookup
     }
 
@@ -178,8 +177,8 @@ def _rates_for_timestamps(
     return grouped
 
 
-def _latest_rates(session, canonical_base: str) -> tuple[Dict[str, Decimal], Optional[datetime]]:
-    latest_timestamp: Optional[datetime] = (
+def _latest_rates(session, canonical_base: str) -> tuple[dict[str, Decimal], datetime | None]:
+    latest_timestamp: datetime | None = (
         session.query(FxRate.timestamp)
         .filter(FxRate.base_currency_code == canonical_base)
         .order_by(desc(FxRate.timestamp))
@@ -195,7 +194,7 @@ def _latest_rates(session, canonical_base: str) -> tuple[Dict[str, Decimal], Opt
     return rates_map.get(normalized_ts, {}), latest_timestamp
 
 
-def _missing_view_base_error(view_base: str, as_of: Optional[datetime]) -> ValidationError:
+def _missing_view_base_error(view_base: str, as_of: datetime | None) -> ValidationError:
     as_of_iso = _to_utc_datetime(as_of).isoformat() if as_of is not None else None
     return ValidationError(
         "FX rates are unavailable for the requested base currency.",
@@ -208,16 +207,16 @@ def _missing_view_base_error(view_base: str, as_of: Optional[datetime]) -> Valid
 
 
 def _rates_in_view_base(
-    rates_map: Dict[str, Decimal],
+    rates_map: dict[str, Decimal],
     canonical_base: str,
     view_base: str,
     *,
-    as_of: Optional[datetime] = None,
-) -> Dict[str, Decimal]:
+    as_of: datetime | None = None,
+) -> dict[str, Decimal]:
     canonical_norm = normalize_currency(canonical_base)
     view_norm = normalize_currency(view_base)
 
-    normalized_rates: Dict[str, Decimal] = {}
+    normalized_rates: dict[str, Decimal] = {}
     for code, value in rates_map.items():
         normalized_rates[normalize_currency(code)] = to_decimal(value)
     normalized_rates.setdefault(canonical_norm, Decimal("1"))
@@ -236,7 +235,7 @@ def _rates_in_view_base(
         source_rates[view_norm] = Decimal("1")
 
     context = get_decimal_context()
-    base_per_unit: Dict[str, Decimal] = {}
+    base_per_unit: dict[str, Decimal] = {}
     with localcontext(context):
         for code, quote in source_rates.items():
             normalized_code = normalize_currency(code)
@@ -253,14 +252,14 @@ def _rates_in_view_base(
     return base_per_unit
 
 
-def _init_reason_map() -> DefaultDict[str, Set[str]]:
+def _init_reason_map() -> defaultdict[str, set[str]]:
     return defaultdict(set)
 
 
 def _add_reason(
-    reason_map: DefaultDict[str, Set[str]],
+    reason_map: defaultdict[str, set[str]],
     reason: str,
-    currency_code: Optional[str],
+    currency_code: str | None,
 ) -> None:
     if not currency_code:
         return
@@ -269,7 +268,7 @@ def _add_reason(
         reason_map[reason].add(normalized)
 
 
-def _serialize_reason_map(reason_map: Mapping[str, Set[str]]) -> Dict[str, List[str]]:
+def _serialize_reason_map(reason_map: Mapping[str, set[str]]) -> dict[str, list[str]]:
     return {reason: sorted(codes) for reason, codes in reason_map.items() if codes}
 
 
@@ -285,21 +284,21 @@ class PortfolioExposureResult:
     portfolio_id: int
     portfolio_base: str
     view_base: str
-    exposures: List[CurrencyExposure]
+    exposures: list[CurrencyExposure]
     priced: int
     unpriced: int
-    as_of: Optional[datetime]
-    unpriced_reasons: Dict[str, List[str]]
+    as_of: datetime | None
+    unpriced_reasons: dict[str, list[str]]
 
 
 def calculate_currency_exposure(
     portfolio_id: int,
     *,
-    top_n: Optional[int] = None,
-    view_base: Optional[str] = None,
+    top_n: int | None = None,
+    view_base: str | None = None,
 ) -> PortfolioExposureResult:
     session = get_session()
-    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    portfolio: Portfolio | None = session.get(Portfolio, portfolio_id)
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
@@ -346,7 +345,7 @@ def calculate_currency_exposure(
         as_of=as_of,
     )
 
-    totals: Dict[str, Dict[str, Decimal]] = {}
+    totals: dict[str, dict[str, Decimal]] = {}
     priced = 0
     unpriced = 0
     context = get_decimal_context()
@@ -387,7 +386,7 @@ def calculate_currency_exposure(
             bucket["native"] += native_signed
             bucket["base"] += base_equiv
 
-    exposures: List[CurrencyExposure] = []
+    exposures: list[CurrencyExposure] = []
     for code, values in totals.items():
         exposures.append(
             CurrencyExposure(
@@ -431,16 +430,16 @@ class PortfolioDailyPnLResult:
     view_base: str
     pnl: Decimal
     value_current: Decimal
-    value_previous: Optional[Decimal]
-    as_of: Optional[datetime]
-    prev_date: Optional[datetime]
+    value_previous: Decimal | None
+    as_of: datetime | None
+    prev_date: datetime | None
     positions_changed: bool
     priced_current: int
     unpriced_current: int
     priced_previous: int
     unpriced_previous: int
-    unpriced_reasons_current: Dict[str, List[str]]
-    unpriced_reasons_previous: Dict[str, List[str]]
+    unpriced_reasons_current: dict[str, list[str]]
+    unpriced_reasons_previous: dict[str, list[str]]
 
 
 @dataclass(frozen=True)
@@ -453,16 +452,16 @@ class PortfolioWhatIfResult:
     current_value: Decimal
     new_value: Decimal
     delta_value: Decimal
-    as_of: Optional[datetime]
+    as_of: datetime | None
 
 
 def calculate_daily_pnl(
     portfolio_id: int,
     *,
-    view_base: Optional[str] = None,
+    view_base: str | None = None,
 ) -> PortfolioDailyPnLResult:
     session = get_session()
-    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    portfolio: Portfolio | None = session.get(Portfolio, portfolio_id)
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
@@ -612,7 +611,7 @@ def calculate_daily_pnl(
 def calculate_portfolio_value_series(
     portfolio_id: int,
     *,
-    view_base: Optional[str] = None,
+    view_base: str | None = None,
     days: int = 30,
 ) -> PortfolioValueSeriesResult:
     if days < 1 or days > 365:
@@ -622,7 +621,7 @@ def calculate_portfolio_value_series(
         )
 
     session = get_session()
-    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    portfolio: Portfolio | None = session.get(Portfolio, portfolio_id)
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
@@ -652,7 +651,7 @@ def calculate_portfolio_value_series(
 
     rates_by_timestamp = _rates_for_timestamps(session, canonical_base, timestamps)
 
-    series: List[PortfolioValueSeriesPoint] = []
+    series: list[PortfolioValueSeriesPoint] = []
     for timestamp in timestamps:
         normalized_timestamp = _to_utc_datetime(timestamp)
         rates_map = rates_by_timestamp.get(normalized_timestamp)
@@ -695,12 +694,12 @@ def simulate_currency_shock(
     *,
     currency: str,
     shock_pct: Decimal,
-    view_base: Optional[str] = None,
+    view_base: str | None = None,
 ) -> PortfolioWhatIfResult:
     """Evaluate the impact of a single-currency shock on portfolio value."""
 
     session = get_session()
-    portfolio: Optional[Portfolio] = session.get(Portfolio, portfolio_id)
+    portfolio: Portfolio | None = session.get(Portfolio, portfolio_id)
     if portfolio is None:
         raise APIError("Portfolio not found.", status_code=404)
 
@@ -801,9 +800,7 @@ def simulate_currency_shock(
     )
 
 
-def _latest_two_timestamps(
-    session, canonical_base: str
-) -> Tuple[Optional[datetime], Optional[datetime]]:
+def _latest_two_timestamps(session, canonical_base: str) -> tuple[datetime | None, datetime | None]:
     rows = (
         session.query(FxRate.timestamp)
         .filter(FxRate.base_currency_code == canonical_base)
@@ -820,16 +817,16 @@ def _latest_two_timestamps(
     return timestamps[0], timestamps[1]
 
 
-def _rates_for_timestamp(session, canonical_base: str, timestamp: datetime) -> Dict[str, Decimal]:
+def _rates_for_timestamp(session, canonical_base: str, timestamp: datetime) -> dict[str, Decimal]:
     rates_map = _rates_for_timestamps(session, canonical_base, [timestamp])
     return rates_map.get(_to_utc_datetime(timestamp), {})
 
 
 def _portfolio_value_from_rates(
-    positions: List[Position],
+    positions: list[Position],
     view_base: str,
-    rate_lookup: Dict[str, Decimal],
-) -> Tuple[Decimal, int, int, DefaultDict[str, Set[str]]]:
+    rate_lookup: dict[str, Decimal],
+) -> tuple[Decimal, int, int, defaultdict[str, set[str]]]:
     total = Decimal("0")
     priced = 0
     unpriced = 0
@@ -868,7 +865,7 @@ def _portfolio_value_from_rates(
     return total, priced, unpriced, reason_map
 
 
-def _recent_daily_timestamps(session, canonical_base: str, days: int) -> List[datetime]:
+def _recent_daily_timestamps(session, canonical_base: str, days: int) -> list[datetime]:
     """Return the most recent FX timestamps for distinct calendar days."""
 
     multiplier = max(3, min(10, days))
@@ -881,7 +878,7 @@ def _recent_daily_timestamps(session, canonical_base: str, days: int) -> List[da
     )
 
     seen_dates: set[date] = set()
-    timestamps: List[datetime] = []
+    timestamps: list[datetime] = []
 
     for (raw_timestamp,) in rows:
         if raw_timestamp is None:
@@ -909,13 +906,13 @@ def _apply_currency_shock(
     rates: Mapping[str, Decimal],
     currency: str,
     shock_factor: Decimal,
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     """Return a new rates mapping with the specified currency shocked."""
 
     normalized_currency = normalize_currency(currency)
     context = get_decimal_context()
     with localcontext(context):
-        shocked: Dict[str, Decimal] = {}
+        shocked: dict[str, Decimal] = {}
         for code, value in rates.items():
             code_norm = normalize_currency(code)
             rate_value = to_decimal(value)

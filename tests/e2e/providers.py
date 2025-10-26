@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Deque, Iterable, Mapping, MutableMapping, Union
-
 from app.providers import (
     BaseRateProvider,
     ProviderError,
@@ -16,8 +15,7 @@ from app.providers import (
     RateSnapshot,
 )
 
-
-LatestQueueItem = Union[RateSnapshot, Exception]
+LatestQueueItem = RateSnapshot | Exception
 
 
 @dataclass(slots=True)
@@ -40,7 +38,7 @@ class SequencedProvider(BaseRateProvider):
         history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
     ) -> None:
         self.name = name
-        self._latest: Deque[LatestQueueItem] = deque(latest or [])
+        self._latest: deque[LatestQueueItem] = deque(latest or [])
         self._history: MutableMapping[tuple[str, str], RateHistorySeries] = dict(history or {})
         self.calls: list[ProviderCall] = []
 

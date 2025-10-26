@@ -81,7 +81,7 @@ def test_value_series_default_base(client, value_series_portfolio):
         Decimal("100") + Decimal("200") / Decimal("0.2500"),
     ]
 
-    for point, expected_value in zip(series, expected):
+    for point, expected_value in zip(series, expected, strict=False):
         assert Decimal(point["value"]) == expected_value
 
 
@@ -100,7 +100,7 @@ def test_value_series_custom_base_and_days(client, value_series_portfolio):
         Decimal("200") + (Decimal("100") * Decimal("0.4000")),
         Decimal("200") + (Decimal("100") * Decimal("0.2500")),
     ]
-    for point, expected_value in zip(series, expected):
+    for point, expected_value in zip(series, expected, strict=False):
         assert Decimal(point["value"]) == expected_value
 
 

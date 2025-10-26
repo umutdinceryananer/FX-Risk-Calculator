@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from decimal import ROUND_HALF_EVEN, Decimal, getcontext, localcontext
-from typing import Dict, Mapping, MutableMapping
-
 
 ROUNDING_PRECISION = 28
 RATE_DECIMAL_PLACES = 6
@@ -47,13 +46,17 @@ def _quantize(value: Decimal | int | float | str, places: int) -> Decimal:
         return to_decimal(value).quantize(exponent)
 
 
-def quantize_rate(value: Decimal | int | float | str, *, places: int = RATE_DECIMAL_PLACES) -> Decimal:
+def quantize_rate(
+    value: Decimal | int | float | str, *, places: int = RATE_DECIMAL_PLACES
+) -> Decimal:
     """Quantize a rate value to the desired number of decimal places."""
 
     return _quantize(value, places)
 
 
-def quantize_amount(value: Decimal | int | float | str, *, places: int = AMOUNT_DECIMAL_PLACES) -> Decimal:
+def quantize_amount(
+    value: Decimal | int | float | str, *, places: int = AMOUNT_DECIMAL_PLACES
+) -> Decimal:
     """Quantize a monetary amount to the desired number of decimal places."""
 
     return _quantize(value, places)
@@ -63,7 +66,7 @@ class RebaseError(ValueError):
     """Raised when rebasing rates fails due to missing data."""
 
 
-def rebase_rates(rates: Mapping[str, Decimal], new_base: str) -> Dict[str, Decimal]:
+def rebase_rates(rates: Mapping[str, Decimal], new_base: str) -> dict[str, Decimal]:
     """Rebase a mapping of rates (expressed against a canonical base) to a new base."""
 
     normalized_rates: MutableMapping[str, Decimal] = {}
@@ -81,7 +84,7 @@ def rebase_rates(rates: Mapping[str, Decimal], new_base: str) -> Dict[str, Decim
 
     context = get_decimal_context()
     with localcontext(context):
-        rebased: Dict[str, Decimal] = {}
+        rebased: dict[str, Decimal] = {}
         for code, value in normalized_rates.items():
             rebased[code] = value / base_rate
 
@@ -136,10 +139,10 @@ def convert_position_amount(
     return convert_amount(native_amount, rate, side=side)
 
 
-def rebase_snapshot(rates_usd: Mapping[str, Decimal], new_base: str) -> Dict[str, Decimal]:
+def rebase_snapshot(rates_usd: Mapping[str, Decimal], new_base: str) -> dict[str, Decimal]:
     """Rebase a canonical USD snapshot into another base currency."""
 
-    normalized_rates: Dict[str, Decimal] = {
+    normalized_rates: dict[str, Decimal] = {
         normalize_currency(code): to_decimal(value) for code, value in rates_usd.items()
     }
 

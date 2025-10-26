@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from flask import Flask, jsonify
 
@@ -13,7 +13,7 @@ class APIError(Exception):
     status_code: int = 400
 
     def __init__(
-        self, message: str, *, status_code: int | None = None, payload: Dict[str, Any] | None = None
+        self, message: str, *, status_code: int | None = None, payload: dict[str, Any] | None = None
     ):
         super().__init__(message)
         self.message = message
@@ -28,7 +28,7 @@ class ValidationError(APIError):
     status_code = 422
 
 
-DEFAULT_STATUS_MESSAGES: Dict[int, str] = {
+DEFAULT_STATUS_MESSAGES: dict[int, str] = {
     400: "Request could not be processed.",
     404: "Resource not found.",
     422: "Submitted data is invalid.",
@@ -62,17 +62,17 @@ def register_error_handlers(app: Flask) -> None:
 
 
 def _derive_field_errors(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     default_message: str | None = None,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """Translate payload fields into a flat field_errors mapping."""
 
     if not payload:
         return {}
 
     if isinstance(payload.get("field_errors"), dict):
-        result: Dict[str, List[str]] = {}
+        result: dict[str, list[str]] = {}
         for field, messages in payload["field_errors"].items():
             normalized = _normalize_messages(messages)
             if normalized:
@@ -89,9 +89,9 @@ def _derive_field_errors(
     return {}
 
 
-def _normalize_messages(messages: Any) -> List[str]:
+def _normalize_messages(messages: Any) -> list[str]:
     if isinstance(messages, list):
-        normalized: List[str] = []
+        normalized: list[str] = []
         for item in messages:
             if item is None:
                 continue
@@ -110,10 +110,10 @@ def _normalize_messages(messages: Any) -> List[str]:
     return [str(messages)]
 
 
-def _flatten_error_tree(errors: Dict[str, Any]) -> Dict[str, List[str]]:
-    collected: Dict[Tuple[str, ...], List[str]] = {}
+def _flatten_error_tree(errors: dict[str, Any]) -> dict[str, list[str]]:
+    collected: dict[tuple[str, ...], list[str]] = {}
 
-    def visit(node: Any, path: Tuple[str, ...]) -> None:
+    def visit(node: Any, path: tuple[str, ...]) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
                 next_path = path + (str(key),)
@@ -137,7 +137,7 @@ def _flatten_error_tree(errors: Dict[str, Any]) -> Dict[str, List[str]]:
 
     visit(errors, tuple())
 
-    flattened: Dict[str, List[str]] = {}
+    flattened: dict[str, list[str]] = {}
     for path, messages in collected.items():
         key_parts = list(path)
         if key_parts and key_parts[0] == "json":

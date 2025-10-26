@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 import responses
 from responses import matchers
-from tests.fixtures import load_json
 
 from app.providers.frankfurter_client import (
     FrankfurterAPIError,
     FrankfurterClient,
     FrankfurterClientConfig,
 )
+from tests.fixtures import load_json
 
 pytestmark = pytest.mark.providers
 

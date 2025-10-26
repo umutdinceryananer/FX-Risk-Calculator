@@ -6,8 +6,9 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Any
 
 from flask import g, has_request_context, request
 from werkzeug.exceptions import HTTPException
@@ -47,9 +48,7 @@ class JSONLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(
-                record.created, tz=timezone.utc
-            ).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -135,7 +134,7 @@ def init_request_logging(app) -> None:
         return response
 
     @app.teardown_request
-    def _log_teardown(exc: Optional[BaseException]):
+    def _log_teardown(exc: BaseException | None):
         if exc is None:
             return
         if getattr(g, "_request_logged", False):
@@ -157,7 +156,7 @@ def init_request_logging(app) -> None:
     app.config["_request_logging_configured"] = True
 
 
-def _request_duration_ms() -> Optional[float]:
+def _request_duration_ms() -> float | None:
     start = getattr(g, "request_start", None)
     if start is None:
         return None
@@ -168,9 +167,9 @@ def _build_request_log_extra(
     *,
     event: str,
     status: int,
-    request_id: Optional[str],
-    duration_ms: Optional[float],
-    error: Optional[str],
+    request_id: str | None,
+    duration_ms: float | None,
+    error: str | None,
 ) -> dict[str, Any]:
     route = request.url_rule.rule if request.url_rule else request.path
     payload: dict[str, Any] = {
@@ -202,11 +201,11 @@ def _extract_extras(record_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def _json_safe(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, str | int | float | bool) or value is None:
         return value
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return [_json_safe(item) for item in value]
     return str(value)
 
@@ -228,9 +227,7 @@ def _to_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _replace_handlers(
-    logger: logging.Logger, handlers: Iterable[logging.Handler]
-) -> None:
+def _replace_handlers(logger: logging.Logger, handlers: Iterable[logging.Handler]) -> None:
     for existing in logger.handlers[:]:
         logger.removeHandler(existing)
     for handler in handlers:
@@ -243,9 +240,9 @@ def provider_log_extra(
     base: str,
     event: str,
     status: str,
-    duration_ms: Optional[float],
+    duration_ms: float | None,
     stale: bool,
-    error: Optional[str] = None,
+    error: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "event": event,
@@ -262,7 +259,7 @@ def provider_log_extra(
     return {key: value for key, value in payload.items() if value is not None}
 
 
-def _current_request_id() -> Optional[str]:
+def _current_request_id() -> str | None:
     if not has_request_context():
         return None
     return getattr(g, "request_id", None)

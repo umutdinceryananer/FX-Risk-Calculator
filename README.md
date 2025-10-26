@@ -4,7 +4,6 @@
 ![Coverage](coverage.svg)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![Type Checking](https://img.shields.io/badge/mypy-configured-2ea44f.svg)
-![License](https://img.shields.io/github/license/umutdinceryananer/FX-Risk-Calculator)
 
 Lightweight Flask service scaffold for monitoring FX risk. The project uses an
 application factory pattern with environment-driven configuration and modular

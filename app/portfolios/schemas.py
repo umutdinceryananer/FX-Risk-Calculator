@@ -60,5 +60,8 @@ class PortfolioListQuerySchema(Schema):
     """Query parameters for portfolio listings."""
 
     page = fields.Integer(load_default=1, validate=Range(min=1))
-    page_size = fields.Integer(load_default=20, data_key="page_size", validate=Range(min=1, max=100))
-
+    page_size = fields.Integer(
+        load_default=20,
+        data_key="page_size",
+        validate=Range(min=1, max=100),
+    )

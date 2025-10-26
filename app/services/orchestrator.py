@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from time import perf_counter
-from typing import Optional
 
 from app.logging import provider_log_extra
 from app.providers import BaseRateProvider, ProviderError, RateSnapshot
@@ -27,11 +25,11 @@ class Orchestrator:
     def __init__(
         self,
         primary: BaseRateProvider,
-        fallback: Optional[BaseRateProvider] = None,
+        fallback: BaseRateProvider | None = None,
     ) -> None:
         self._primary = primary
         self._fallback = fallback
-        self._last_snapshot: Optional[SnapshotRecord] = None
+        self._last_snapshot: SnapshotRecord | None = None
 
     def refresh_latest(self, base: str) -> RateSnapshot:
         """Refresh latest rates using primary, fallback, or cached snapshot."""
@@ -106,7 +104,9 @@ class Orchestrator:
                 )
 
         if self._last_snapshot is None:
-            raise ProviderError("Unable to refresh rates from any provider and no cached snapshot available")
+            raise ProviderError(
+                "Unable to refresh rates from any provider and no cached snapshot available"
+            )
 
         cached_record = self._last_snapshot
         cached = cached_record.snapshot
@@ -126,20 +126,22 @@ class Orchestrator:
         self._last_snapshot = SnapshotRecord(snapshot=cached, stale=True)
         return cached
 
-    def get_snapshot_info(self) -> Optional[SnapshotRecord]:
+    def get_snapshot_info(self) -> SnapshotRecord | None:
         return self._last_snapshot
 
     def _store_snapshot(self, snapshot: RateSnapshot, stale: bool) -> None:
         self._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=stale)
 
     @staticmethod
-    def _provider_name(provider: Optional[BaseRateProvider]) -> str:
+    def _provider_name(provider: BaseRateProvider | None) -> str:
         if provider is None:
             return "unknown"
         return getattr(provider, "name", provider.__class__.__name__)
 
 
-def create_orchestrator(primary: BaseRateProvider, fallback: Optional[BaseRateProvider] = None) -> Orchestrator:
+def create_orchestrator(
+    primary: BaseRateProvider, fallback: BaseRateProvider | None = None
+) -> Orchestrator:
     return Orchestrator(primary=primary, fallback=fallback)
 
 

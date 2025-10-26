@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Type
-
 
 SUPPORTED_RATE_PROVIDERS = {"exchange", "exchangerate_host", "ecb", "frankfurter_ecb", "mock"}
 PROVIDER_ALIASES = {"exchangerate_host": "exchange", "frankfurter_ecb": "ecb"}
@@ -61,7 +59,7 @@ CONFIG_BY_ENV = {
 }
 
 
-def get_config(config_name: str | None = None) -> Type[BaseConfig]:
+def get_config(config_name: str | None = None) -> type[BaseConfig]:
     """Return the config class for the requested environment.
 
     Args:
@@ -82,7 +80,7 @@ def get_config(config_name: str | None = None) -> Type[BaseConfig]:
     return config_cls
 
 
-def _validate_providers(config_cls: Type[BaseConfig]) -> None:
+def _validate_providers(config_cls: type[BaseConfig]) -> None:
     primary_normalized = _normalize_provider(config_cls.FX_RATE_PROVIDER)
     if primary_normalized not in SUPPORTED_RATE_PROVIDERS:
         raise ValueError(

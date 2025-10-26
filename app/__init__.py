@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from config import get_config
 from flask import Flask, redirect, url_for
 from flask_smorest import Api
 
-from config import get_config
-from .database import init_app as init_db
 from .cli import register_cli
 from .cors import init_cors
-from .logging import setup_logging, init_request_logging
+from .database import init_app as init_db
+from .logging import init_request_logging, setup_logging
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -51,8 +51,8 @@ def _register_extensions(app: Flask) -> Api:
 
     init_db(app)
     from . import models  # noqa: F401  # Ensure models are imported for metadata
-    from .services import ensure_refresh_state, init_registry, init_orchestrator, init_scheduler
     from .providers.registry import init_provider
+    from .services import ensure_refresh_state, init_orchestrator, init_registry, init_scheduler
 
     init_registry(app)
     init_provider(app)
@@ -68,12 +68,12 @@ def _register_extensions(app: Flask) -> Api:
 def _register_blueprints(app: Flask, api: Api) -> None:
     """Register Flask blueprints."""
 
+    from .currencies import blp as currencies_blp
     from .frontend import blp as frontend_blp
     from .health import blp as health_blp
-    from .currencies import blp as currencies_blp
+    from .metrics import blp as metrics_blp
     from .portfolios import blp as portfolios_blp
     from .positions import blp as positions_blp
-    from .metrics import blp as metrics_blp
     from .rates import bp as rates_bp
 
     api.register_blueprint(health_blp, url_prefix="/health")

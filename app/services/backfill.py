@@ -5,13 +5,12 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Iterable, List, Sequence
 
 from app.providers import BaseRateProvider, ProviderError
 from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
+from app.services.currency_registry import registry
 from app.services.orchestrator import Orchestrator
 from app.services.rate_store import persist_snapshot
-from app.services.currency_registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +68,8 @@ def run_backfill(days: int, base_currency: str) -> None:
         _persist_series(series)
 
 
-def _history_capable_providers(orchestrator: Orchestrator) -> List[BaseRateProvider]:
-    providers: List[BaseRateProvider] = []
+def _history_capable_providers(orchestrator: Orchestrator) -> list[BaseRateProvider]:
+    providers: list[BaseRateProvider] = []
     primary = getattr(orchestrator, "_primary", None)
     if primary is not None and hasattr(primary, "get_history"):
         providers.append(primary)

@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-
-from typing import Sequence, Tuple
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-COMMANDS: Sequence[Tuple[str, Sequence[str]]] = (
+COMMANDS: Sequence[tuple[str, Sequence[str]]] = (
     ("Lint", ("make", "lint")),
     ("Type check", ("make", "typecheck")),
     ("Backend tests", ("make", "test")),

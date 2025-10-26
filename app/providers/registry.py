@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Dict, Iterable, List
+from collections.abc import Callable, Iterable
 
 from .base import BaseRateProvider, ProviderError
 
 ProviderFactory = Callable[[], BaseRateProvider]
 
-_PROVIDER_FACTORIES: Dict[str, ProviderFactory] = {}
+_PROVIDER_FACTORIES: dict[str, ProviderFactory] = {}
 
 
 def _default_factories() -> Iterable[tuple[str, ProviderFactory]]:
@@ -54,7 +54,7 @@ def unregister_provider(name: str) -> None:
     _PROVIDER_FACTORIES.pop(name.lower(), None)
 
 
-def list_providers() -> List[str]:
+def list_providers() -> list[str]:
     """Return the list of registered provider identifiers."""
 
     return sorted(_PROVIDER_FACTORIES.keys())

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, Iterable, List, Mapping
 
 from app.utils.datetime import ensure_utc
 
@@ -17,8 +17,8 @@ def _normalize_code(code: str) -> str:
     return normalized
 
 
-def _normalize_rates(rates: Mapping[str, Decimal | float | int]) -> Dict[str, Decimal]:
-    normalized: Dict[str, Decimal] = {}
+def _normalize_rates(rates: Mapping[str, Decimal | float | int]) -> dict[str, Decimal]:
+    normalized: dict[str, Decimal] = {}
     for code, value in rates.items():
         normalized[_normalize_code(code)] = Decimal(str(value))
     return normalized
@@ -31,7 +31,7 @@ class RateSnapshot:
     base_currency: str
     source: str
     timestamp: datetime
-    rates: Dict[str, Decimal] = field(default_factory=dict)
+    rates: dict[str, Decimal] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "base_currency", _normalize_code(self.base_currency))
@@ -62,7 +62,7 @@ class RateHistorySeries:
     base_currency: str
     quote_currency: str
     source: str
-    points: List[RatePoint] = field(default_factory=list)
+    points: list[RatePoint] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "base_currency", _normalize_code(self.base_currency))

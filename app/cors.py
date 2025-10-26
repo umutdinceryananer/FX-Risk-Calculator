@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from collections.abc import Iterable
 
 from flask import Response, make_response, request
 
@@ -68,7 +68,7 @@ def init_cors(app) -> None:
     app.config["_cors_configured"] = True
 
 
-def _normalize_entries(raw: str | Iterable[str]) -> Tuple[str, ...]:
+def _normalize_entries(raw: str | Iterable[str]) -> tuple[str, ...]:
     if isinstance(raw, str):
         candidates = raw.split(",")
     else:
@@ -81,7 +81,11 @@ def _normalize_entries(raw: str | Iterable[str]) -> Tuple[str, ...]:
     return tuple(normalized)
 
 
-def _apply_origin_headers(response: Response, origin: str, allowed_origins: Tuple[str, ...]) -> None:
+def _apply_origin_headers(
+    response: Response,
+    origin: str,
+    allowed_origins: tuple[str, ...],
+) -> None:
     response.headers["Access-Control-Allow-Origin"] = origin if "*" not in allowed_origins else "*"
     response.headers["Vary"] = _merge_vary_header(response.headers.get("Vary"), "Origin")
 
@@ -95,7 +99,7 @@ def _merge_vary_header(existing: str | None, value: str) -> str:
     return ", ".join(items)
 
 
-def _requested_methods(default_methods: Tuple[str, ...]) -> Tuple[str, ...]:
+def _requested_methods(default_methods: tuple[str, ...]) -> tuple[str, ...]:
     requested = request.headers.get("Access-Control-Request-Method")
     if not requested:
         return default_methods

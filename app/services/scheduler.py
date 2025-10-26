@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Optional
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -28,7 +27,7 @@ def _run_refresh(app) -> None:
     from app.services.orchestrator import Orchestrator  # Local import to avoid circular
 
     with app.app_context():
-        orchestrator: Optional[Orchestrator] = app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+        orchestrator: Orchestrator | None = app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
         if orchestrator is None:
             logger.warning("No orchestrator configured; skipping scheduled refresh.")
             return
@@ -53,7 +52,7 @@ def _run_refresh(app) -> None:
             logger.error("Scheduled refresh failed: %s", exc)
 
 
-def init_scheduler(app) -> Optional[BackgroundScheduler]:
+def init_scheduler(app) -> BackgroundScheduler | None:
     """Initialise APScheduler with periodic refresh job if enabled."""
 
     ensure_refresh_state(app)
@@ -68,17 +67,18 @@ def init_scheduler(app) -> Optional[BackgroundScheduler]:
     scheduler = BackgroundScheduler(timezone=app.config.get("SCHEDULER_TIMEZONE", "UTC"))
     cron_expr = app.config.get("RATES_REFRESH_CRON", "0 */1 * * *")
     trigger = CronTrigger.from_crontab(cron_expr)
-    scheduler.add_job(_run_refresh, trigger=trigger, args=[app], id="refresh_rates", replace_existing=True)
+    scheduler.add_job(
+        _run_refresh, trigger=trigger, args=[app], id="refresh_rates", replace_existing=True
+    )
     scheduler.start()
 
     app.extensions[SCHEDULER_EXT_KEY] = scheduler
 
     @app.teardown_appcontext
-    def _shutdown_scheduler(_exc: Optional[BaseException]) -> None:
+    def _shutdown_scheduler(_exc: BaseException | None) -> None:
         sched = app.extensions.get(SCHEDULER_EXT_KEY)
         if sched and getattr(sched, "running", False):
             sched.shutdown(wait=False)
 
     logger.info("APScheduler started with cron '%s'", cron_expr)
     return scheduler
-

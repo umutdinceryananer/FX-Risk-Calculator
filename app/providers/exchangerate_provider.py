@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from app.providers.base import BaseRateProvider, ProviderError
 from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
@@ -26,7 +27,7 @@ class ExchangeRateHostProvider(BaseRateProvider):
         self._client = client
 
     @classmethod
-    def from_config(cls, config: Mapping[str, Any]) -> "ExchangeRateHostProvider":
+    def from_config(cls, config: Mapping[str, Any]) -> ExchangeRateHostProvider:
         client_config = cls._build_client_config(config)
         return cls(ExchangeRateHostClient(client_config))
 

@@ -5,17 +5,18 @@ Revises:
 Create Date: 2025-10-14 19:27:04.590232
 
 """
-from typing import Sequence, Union
+
+from typing import Sequence
 
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'bb44eae4a137'
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "bb44eae4a137"
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -43,12 +44,8 @@ def upgrade() -> None:
         sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False),
         sa.Column("rate", sa.Numeric(precision=18, scale=8), nullable=False),
         sa.Column("source", sa.String(length=64), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["base_currency_code"], ["currencies.code"], ondelete="RESTRICT"
-        ),
-        sa.ForeignKeyConstraint(
-            ["target_currency_code"], ["currencies.code"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["base_currency_code"], ["currencies.code"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["target_currency_code"], ["currencies.code"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "base_currency_code",
@@ -79,12 +76,8 @@ def upgrade() -> None:
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["currency_code"], ["currencies.code"], ondelete="RESTRICT"
-        ),
-        sa.ForeignKeyConstraint(
-            ["portfolio_id"], ["portfolios.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["currency_code"], ["currencies.code"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["portfolio_id"], ["portfolios.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("positions", schema=None) as batch_op:
@@ -93,6 +86,7 @@ def upgrade() -> None:
             ["portfolio_id", "currency_code"],
             unique=False,
         )
+
 
 def downgrade() -> None:
     """Downgrade schema."""

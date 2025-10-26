@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, MutableMapping
 from contextlib import contextmanager
 from time import perf_counter
-from typing import Any, Mapping, MutableMapping, Optional
+from typing import Any
 
 from flask import current_app, g
 
@@ -21,7 +22,7 @@ def _is_enabled(app) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _threshold_ms(app) -> Optional[float]:
+def _threshold_ms(app) -> float | None:
     value = app.config.get(CONFIG_THRESHOLD_KEY)
     if value is None:
         return None
@@ -31,11 +32,11 @@ def _threshold_ms(app) -> Optional[float]:
         return None
 
 
-def _current_request_id() -> Optional[str]:
+def _current_request_id() -> str | None:
     return getattr(g, "request_id", None)
 
 
-def _should_log(duration_ms: float, *, enabled: bool, threshold_ms: Optional[float]) -> bool:
+def _should_log(duration_ms: float, *, enabled: bool, threshold_ms: float | None) -> bool:
     if enabled:
         return True
     if threshold_ms is None:
@@ -47,9 +48,9 @@ def _prepare_payload(
     *,
     event: str,
     duration_ms: float,
-    metadata: Optional[Mapping[str, Any]],
+    metadata: Mapping[str, Any] | None,
     status: str,
-    error: Optional[str] = None,
+    error: str | None = None,
 ) -> MutableMapping[str, Any]:
     payload: MutableMapping[str, Any] = {
         "event": event or LOG_EVENT_NAME,
@@ -73,8 +74,8 @@ def _prepare_payload(
 def timed_operation(
     event: str,
     *,
-    metadata: Optional[Mapping[str, Any]] = None,
-    logger: Optional[logging.Logger] = None,
+    metadata: Mapping[str, Any] | None = None,
+    logger: logging.Logger | None = None,
 ) -> None:
     """Measure the elapsed wall time for a block and log if enabled."""
 
@@ -84,7 +85,7 @@ def timed_operation(
 
     logger = logger or app.logger
     start = perf_counter()
-    error: Optional[Exception] = None
+    error: Exception | None = None
     try:
         yield
     except Exception as exc:

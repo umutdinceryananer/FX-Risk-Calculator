@@ -5,7 +5,8 @@ Revises: bb44eae4a137
 Create Date: 2025-10-14 19:34:46.848806
 
 """
-from typing import Sequence, Union
+
+from typing import Sequence
 
 from alembic import op
 import sqlalchemy as sa
@@ -18,10 +19,10 @@ currencies_table = sa.table(
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8f88ae0c7af8'
-down_revision: Union[str, Sequence[str], None] = 'bb44eae4a137'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "8f88ae0c7af8"
+down_revision: str | Sequence[str] | None = "bb44eae4a137"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -55,10 +56,26 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     codes = [
-        "USD", "EUR", "GBP", "JPY", "TRY", "CHF", "AUD", "CAD", "NZD", "SEK",
-        "NOK", "DKK", "CNY", "HKD", "SGD", "INR", "ZAR", "BRL", "MXN", "KRW",
+        "USD",
+        "EUR",
+        "GBP",
+        "JPY",
+        "TRY",
+        "CHF",
+        "AUD",
+        "CAD",
+        "NZD",
+        "SEK",
+        "NOK",
+        "DKK",
+        "CNY",
+        "HKD",
+        "SGD",
+        "INR",
+        "ZAR",
+        "BRL",
+        "MXN",
+        "KRW",
     ]
-    delete_statement = currencies_table.delete().where(
-        currencies_table.c.code.in_(codes)
-    )
+    delete_statement = currencies_table.delete().where(currencies_table.c.code.in_(codes))
     op.execute(delete_statement)

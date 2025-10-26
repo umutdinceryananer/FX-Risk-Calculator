@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional, Union
 
 from sqlalchemy import asc, desc
 from sqlalchemy.exc import IntegrityError
@@ -35,16 +34,16 @@ class PositionCreateData:
     portfolio_id: int
     currency_code: str
     amount: Decimal
-    side: Union[PositionType, str] = PositionType.LONG
+    side: PositionType | str = PositionType.LONG
 
 
 @dataclass(frozen=True)
 class PositionUpdateData:
     """Payload for updating a position."""
 
-    currency_code: Optional[str] = None
-    amount: Optional[Decimal] = None
-    side: Optional[Union[PositionType, str]] = None
+    currency_code: str | None = None
+    amount: Decimal | None = None
+    side: PositionType | str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,8 +53,8 @@ class PositionListParams:
     portfolio_id: int
     page: int = 1
     page_size: int = 25
-    currency: Optional[str] = None
-    side: Optional[Union[PositionType, str]] = None
+    currency: str | None = None
+    side: PositionType | str | None = None
     sort: str = "created_at"
     direction: str = "asc"
 
@@ -64,7 +63,7 @@ class PositionListParams:
 class PositionListResult:
     """Paginated collection data for positions."""
 
-    items: List[PositionDTO]
+    items: list[PositionDTO]
     total: int
     page: int
     page_size: int
@@ -93,10 +92,7 @@ def list_positions(params: PositionListParams) -> PositionListResult:
 
     offset = (params.page - 1) * params.page_size
     records = (
-        query.order_by(order_clause, asc(Position.id))
-        .offset(offset)
-        .limit(params.page_size)
-        .all()
+        query.order_by(order_clause, asc(Position.id)).offset(offset).limit(params.page_size).all()
     )
 
     items = [_to_dto(position) for position in records]
@@ -221,11 +217,11 @@ def _validate_amount(amount: Decimal) -> Decimal:
 
 
 def _normalize_side(
-    value: Optional[Union[PositionType, str]],
+    value: PositionType | str | None,
     *,
     field: str,
     allow_none: bool = False,
-) -> Optional[PositionType]:
+) -> PositionType | None:
     if value is None:
         return None if allow_none else PositionType.LONG
 

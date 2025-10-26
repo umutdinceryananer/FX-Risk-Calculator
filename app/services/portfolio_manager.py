@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 from sqlalchemy import asc
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +11,7 @@ from app.database import get_session
 from app.errors import APIError, ValidationError
 from app.models import Portfolio
 from app.validation import validate_currency_code
+
 
 @dataclass(frozen=True)
 class PortfolioDTO:
@@ -34,15 +34,15 @@ class PortfolioCreateData:
 class PortfolioUpdateData:
     """Payload for partially updating a portfolio."""
 
-    name: Optional[str] = None
-    base_currency: Optional[str] = None
+    name: str | None = None
+    base_currency: str | None = None
 
 
 @dataclass(frozen=True)
 class PortfolioListResult:
     """Paginated collection wrapper for portfolios."""
 
-    items: List[PortfolioDTO]
+    items: list[PortfolioDTO]
     total: int
     page: int
     page_size: int
@@ -102,7 +102,9 @@ def update_portfolio(portfolio_id: int, data: PortfolioUpdateData) -> PortfolioD
         portfolio.name = _normalize_name(data.name)
 
     if data.base_currency is not None:
-        portfolio.base_currency_code = validate_currency_code(data.base_currency, field="base_currency")
+        portfolio.base_currency_code = validate_currency_code(
+            data.base_currency, field="base_currency"
+        )
 
     try:
         session.commit()

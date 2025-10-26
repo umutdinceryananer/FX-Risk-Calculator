@@ -9,7 +9,6 @@ from marshmallow.validate import Length, OneOf, Range
 
 from app.models import PositionType
 
-
 POSITION_SIDE_CHOICES = tuple(member.value for member in PositionType)
 
 
@@ -62,7 +61,11 @@ class PositionCreateSchema(PositionBaseSchema):
 class PositionUpdateSchema(Schema):
     """Schema for updating an existing position."""
 
-    currency_code = fields.String(load_default=None, validate=Length(equal=3), data_key="currency_code")
+    currency_code = fields.String(
+        load_default=None,
+        validate=Length(equal=3),
+        data_key="currency_code",
+    )
     amount = fields.Decimal(
         load_default=None,
         as_string=True,
@@ -119,7 +122,11 @@ class PositionListQuerySchema(Schema):
     """Query parameters for listing positions."""
 
     page = fields.Integer(load_default=1, validate=Range(min=1))
-    page_size = fields.Integer(load_default=25, data_key="page_size", validate=Range(min=1, max=200))
+    page_size = fields.Integer(
+        load_default=25,
+        data_key="page_size",
+        validate=Range(min=1, max=200),
+    )
     currency = fields.String(load_default=None, validate=Length(equal=3))
     side = fields.String(load_default=None)
     sort = fields.String(

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, timedelta
+from datetime import timedelta
 from decimal import Decimal
-from typing import Dict
+
+from app.utils.datetime import utc_now
 
 from .base import BaseRateProvider
 from .schemas import RateHistorySeries, RatePoint, RateSnapshot
-from app.utils.datetime import utc_now
 
 
 class MockRateProvider(BaseRateProvider):
@@ -19,7 +19,7 @@ class MockRateProvider(BaseRateProvider):
     def get_latest(self, base: str) -> RateSnapshot:
         base_currency = str(base).upper()
         timestamp = utc_now()
-        rates: Dict[str, Decimal] = {
+        rates: dict[str, Decimal] = {
             "EUR": Decimal("0.90"),
             "GBP": Decimal("0.78"),
             "JPY": Decimal("150.12"),

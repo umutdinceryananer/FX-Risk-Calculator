@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Optional
 
 import pytest
 
-from app.providers import RateHistorySeries, RateSnapshot
+from app.providers import RateHistorySeries
 from app.services.orchestrator import Orchestrator
 
 from .providers import LatestQueueItem, SequencedProvider
@@ -20,7 +19,7 @@ def orchestrator_stub(app):
     def _factory(
         *,
         primary_latest: Iterable[LatestQueueItem] = (),
-        fallback_latest: Optional[Iterable[LatestQueueItem]] = None,
+        fallback_latest: Iterable[LatestQueueItem] | None = None,
         primary_history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
         fallback_history: Mapping[tuple[str, str], RateHistorySeries] | None = None,
         attach: bool = True,

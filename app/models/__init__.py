@@ -5,9 +5,19 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 
-from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, desc, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    desc,
+    func,
+)
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,7 +30,7 @@ class Currency(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     code: Mapped[str] = mapped_column(String(12), unique=True, nullable=False)
-    name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Currency code={self.code}>"
@@ -38,12 +48,10 @@ class Portfolio(Base):
         nullable=False,
     )
 
-    positions: Mapped[list["Position"]] = relationship(
+    positions: Mapped[list[Position]] = relationship(
         "Position", back_populates="portfolio", cascade="all, delete-orphan"
     )
-    base_currency: Mapped["Currency"] = relationship(
-        "Currency", foreign_keys=[base_currency_code]
-    )
+    base_currency: Mapped[Currency] = relationship("Currency", foreign_keys=[base_currency_code])
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Portfolio name={self.name} base={self.base_currency_code}>"
@@ -82,10 +90,10 @@ class FxRate(Base):
     rate: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
 
-    base_currency: Mapped["Currency"] = relationship(
+    base_currency: Mapped[Currency] = relationship(
         "Currency", foreign_keys=[base_currency_code], lazy="joined"
     )
-    target_currency: Mapped["Currency"] = relationship(
+    target_currency: Mapped[Currency] = relationship(
         "Currency", foreign_keys=[target_currency_code], lazy="joined"
     )
 
@@ -107,9 +115,7 @@ class Position(Base):
     """Represents holdings in a particular currency for a portfolio."""
 
     __tablename__ = "positions"
-    __table_args__ = (
-        Index("ix_positions_portfolio_currency", "portfolio_id", "currency_code"),
-    )
+    __table_args__ = (Index("ix_positions_portfolio_currency", "portfolio_id", "currency_code"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     portfolio_id: Mapped[int] = mapped_column(
@@ -129,10 +135,14 @@ class Position(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    portfolio: Mapped["Portfolio"] = relationship("Portfolio", back_populates="positions")
-    currency: Mapped["Currency"] = relationship("Currency")
+    portfolio: Mapped[Portfolio] = relationship("Portfolio", back_populates="positions")
+    currency: Mapped[Currency] = relationship("Currency")
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            f"<Position portfolio={self.portfolio_id} currency={self.currency_code} amount={self.amount} side={self.side}>"
+            "<Position "
+            f"portfolio={self.portfolio_id} "
+            f"currency={self.currency_code} "
+            f"amount={self.amount} "
+            f"side={self.side}>"
         )

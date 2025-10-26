@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from app.providers.http_client import HTTPClient, HTTPClientConfig, HTTPClientError
 
@@ -15,7 +16,11 @@ class ExchangeRateHostError(RuntimeError):
 class ExchangeRateHostClient:
     """HTTP client for ExchangeRate.host built on the shared HTTP wrapper."""
 
-    def __init__(self, config: ExchangeRateHostClientConfig, client: Optional[HTTPClient] = None) -> None:
+    def __init__(
+        self,
+        config: ExchangeRateHostClientConfig,
+        client: HTTPClient | None = None,
+    ) -> None:
         self._config = config
         self._client = client or HTTPClient(
             HTTPClientConfig(
@@ -26,7 +31,7 @@ class ExchangeRateHostClient:
             )
         )
 
-    def get(self, path: str, params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def get(self, path: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         try:
             payload = self._client.get(path, params=params)
         except HTTPClientError as exc:
@@ -42,7 +47,13 @@ class ExchangeRateHostClient:
 class ExchangeRateHostClientConfig:
     """Configuration parameters for the API client."""
 
-    def __init__(self, base_url: str, timeout: float, max_retries: int = 3, backoff_seconds: float = 0.5) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        timeout: float,
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+    ) -> None:
         self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries

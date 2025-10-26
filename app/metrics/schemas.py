@@ -120,5 +120,8 @@ class PortfolioValueSeriesResponseSchema(Schema):
     portfolio_id = fields.Integer(required=True, data_key="portfolio_id")
     portfolio_base = fields.String(required=True, data_key="portfolio_base")
     view_base = fields.String(required=True, data_key="view_base")
-    series = fields.List(fields.Nested(PortfolioValueSeriesPointSchema), required=True, data_key="series")
-
+    series = fields.List(
+        fields.Nested(PortfolioValueSeriesPointSchema),
+        required=True,
+        data_key="series",
+    )

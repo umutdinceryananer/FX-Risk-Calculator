@@ -9,10 +9,10 @@ from app.services.fx_conversion import (
     convert_amount,
     convert_position_amount,
     normalize_currency,
-    rebase_rates,
-    rebase_snapshot,
     quantize_amount,
     quantize_rate,
+    rebase_rates,
+    rebase_snapshot,
 )
 
 
@@ -110,4 +110,3 @@ def test_quantize_amount_half_even():
     assert quantize_amount("1.005") == Decimal("1.00")
     assert quantize_amount("1.015") == Decimal("1.02")
     assert quantize_amount("12.34567", places=4) == Decimal("12.3457")
-

@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Optional
+from typing import Any
 
 import requests
 from requests import Response, Session
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class HTTPClientError(RuntimeError):
     """Raised when the HTTP client cannot satisfy a request."""
 
-    def __init__(self, message: str, *, status_code: Optional[int] = None) -> None:
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
 
@@ -40,15 +41,15 @@ class HTTPClient:
     def __init__(
         self,
         config: HTTPClientConfig,
-        session: Optional[Session] = None,
+        session: Session | None = None,
     ) -> None:
         self._config = config
         self._session = session or requests.Session()
 
-    def get(self, path: str, params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def get(self, path: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         url = self._build_url(path)
         attempt = 0
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         while attempt < self._config.max_retries:
             attempt += 1
@@ -94,7 +95,7 @@ class HTTPClient:
         return f"{base}/{suffix}"
 
     @staticmethod
-    def _handle_response(response: Response) -> Dict[str, Any]:
+    def _handle_response(response: Response) -> dict[str, Any]:
         status = response.status_code
         if status >= 500:
             raise HTTPClientError(f"Server error {status}", status_code=status)
@@ -102,7 +103,7 @@ class HTTPClient:
             raise HTTPClientError(f"Client error {status}: {response.text}", status_code=status)
 
         try:
-            payload: Dict[str, Any] = response.json()
+            payload: dict[str, Any] = response.json()
         except JSONDecodeError as exc:  # pragma: no cover
             raise HTTPClientError("Invalid JSON response") from exc
 

@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-import pytest
-
 from app.providers.base import BaseRateProvider, ProviderError
 from app.providers.schemas import RateSnapshot
 from app.services import orchestrator as orchestrator_module
@@ -103,9 +101,10 @@ def test_orchestrator_logs_stale_return():
 
     orchestrator.refresh_latest("USD")
 
-    with patch.object(orchestrator_module.logger, "warning") as mock_warning, patch.object(
-        orchestrator_module.logger, "error"
-    ) as mock_error:
+    with (
+        patch.object(orchestrator_module.logger, "warning") as mock_warning,
+        patch.object(orchestrator_module.logger, "error") as mock_error,
+    ):
         orchestrator.refresh_latest("USD")
 
     mock_error.assert_called()
@@ -116,7 +115,9 @@ def test_orchestrator_logs_stale_return():
     assert error_extra["stale"] is False
 
     warning_extras = [call.kwargs.get("extra") for call in mock_warning.call_args_list]
-    stale_extras = [extra for extra in warning_extras if extra and extra.get("event") == "provider.stale"]
+    stale_extras = [
+        extra for extra in warning_extras if extra and extra.get("event") == "provider.stale"
+    ]
     assert stale_extras
     stale_extra = stale_extras[-1]
     assert stale_extra["provider"] == "primary"

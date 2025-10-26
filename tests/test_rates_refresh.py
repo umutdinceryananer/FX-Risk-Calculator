@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 
@@ -34,7 +34,10 @@ def snapshot():
 
 def test_manual_refresh_returns_accepted(client, snapshot, monkeypatch):
     calls = {"persist": 0}
-    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1))
+    monkeypatch.setattr(
+        "app.rates.routes.persist_snapshot",
+        lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1),
+    )
 
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(snapshot=snapshot)
@@ -56,7 +59,10 @@ def test_manual_refresh_returns_accepted(client, snapshot, monkeypatch):
 
 
 def test_manual_refresh_throttles_requests(client, snapshot, monkeypatch):
-    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: (_ for _ in ()).throw(RuntimeError("should not persist")))
+    monkeypatch.setattr(
+        "app.rates.routes.persist_snapshot",
+        lambda snapshot: (_ for _ in ()).throw(RuntimeError("should not persist")),
+    )
 
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(snapshot=snapshot)
@@ -86,7 +92,10 @@ def test_manual_refresh_reports_provider_error(client, monkeypatch):
 
 def test_manual_refresh_respects_zero_throttle(client, snapshot, monkeypatch):
     calls = {"persist": 0}
-    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1))
+    monkeypatch.setattr(
+        "app.rates.routes.persist_snapshot",
+        lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1),
+    )
 
     app = client.application
     app.config["REFRESH_THROTTLE_SECONDS"] = 0
@@ -103,4 +112,3 @@ def test_manual_refresh_respects_zero_throttle(client, snapshot, monkeypatch):
     state = app.extensions["fx_refresh_state"]
     assert state["last_success"] is not None
     assert state.get("throttle_until") is None
-

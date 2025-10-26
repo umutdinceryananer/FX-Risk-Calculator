@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, Set
 
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
@@ -16,7 +16,7 @@ from app.models import Currency
 class CurrencyRegistry:
     """Provides fast lookup for allowed currency codes."""
 
-    codes: Set[str] = field(default_factory=set)
+    codes: set[str] = field(default_factory=set)
 
     def load(self) -> None:
         """Load currency codes from the database."""

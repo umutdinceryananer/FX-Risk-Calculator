@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Dict, Iterable, Mapping
 
 from app.providers.base import BaseRateProvider, ProviderError
 from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
+from app.services.fx_conversion import RebaseError, rebase_rates
 
 from ..services.currency_registry import registry
 from .frankfurter_client import (
@@ -15,7 +16,6 @@ from .frankfurter_client import (
     FrankfurterClient,
     FrankfurterClientConfig,
 )
-from app.services.fx_conversion import RebaseError, rebase_rates
 
 
 class FrankfurterProvider(BaseRateProvider):
@@ -28,7 +28,7 @@ class FrankfurterProvider(BaseRateProvider):
         self._canonical_base = canonical_base.upper()
 
     @classmethod
-    def from_config(cls, config: Mapping[str, str | int | float]) -> "FrankfurterProvider":
+    def from_config(cls, config: Mapping[str, str | int | float]) -> FrankfurterProvider:
         client_config = FrankfurterClientConfig(
             base_url=str(config.get("FRANKFURTER_API_BASE_URL")),
             timeout=float(config.get("REQUEST_TIMEOUT_SECONDS", 5)),
@@ -107,8 +107,8 @@ class FrankfurterProvider(BaseRateProvider):
             points=points,
         )
 
-    def _fetch_latest(self, symbols: Iterable[str]) -> tuple[datetime, Dict[str, Decimal]]:
-        params: Dict[str, str] = {"from": self._canonical_base}
+    def _fetch_latest(self, symbols: Iterable[str]) -> tuple[datetime, dict[str, Decimal]]:
+        params: dict[str, str] = {"from": self._canonical_base}
         targets = sorted(set(symbols) - {self._canonical_base})
         if targets:
             params["to"] = ",".join(targets)
@@ -130,7 +130,7 @@ class FrankfurterProvider(BaseRateProvider):
         target_base: str,
         *,
         include_base: bool = False,
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         if target_base == self._canonical_base:
             result = {code: value for code, value in rates.items() if code != self._canonical_base}
             return result if include_base else result
@@ -144,8 +144,8 @@ class FrankfurterProvider(BaseRateProvider):
             rebased.pop(target_base, None)
         return rebased
 
-    def _normalize_rates(self, rates: Mapping[str, float | Decimal]) -> Dict[str, Decimal]:
-        normalized: Dict[str, Decimal] = {}
+    def _normalize_rates(self, rates: Mapping[str, float | Decimal]) -> dict[str, Decimal]:
+        normalized: dict[str, Decimal] = {}
         for code, value in rates.items():
             normalized[code.upper()] = Decimal(str(value))
         return normalized

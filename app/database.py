@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -16,7 +16,7 @@ class Base(DeclarativeBase):
 # Thread-local scoped session used across the application.
 SessionLocal = scoped_session(sessionmaker())
 
-_engine: Optional[Engine] = None
+_engine: Engine | None = None
 
 
 def init_app(app: Any) -> None:
@@ -32,7 +32,7 @@ def init_app(app: Any) -> None:
     SessionLocal.configure(bind=_engine, autoflush=False)
 
     @app.teardown_appcontext
-    def shutdown_session(_: Optional[BaseException] = None) -> None:
+    def shutdown_session(_: BaseException | None = None) -> None:
         SessionLocal.remove()
 
     app.extensions["sqlalchemy_engine"] = _engine

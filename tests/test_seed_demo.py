@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.database import get_session
 from app.models import Portfolio, Position
-from app.services.demo_seed import PORTFOLIO_NAME, DEMO_POSITIONS, seed_demo_portfolio
+from app.services.demo_seed import DEMO_POSITIONS, PORTFOLIO_NAME, seed_demo_portfolio
 
 
 def test_seed_demo_portfolio_idempotent(app):

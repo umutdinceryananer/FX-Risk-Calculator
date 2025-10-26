@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import get_session, SessionLocal
+from app.database import SessionLocal, get_session
 from app.models import Portfolio, Position, PositionType
 
 PORTFOLIO_NAME = "Global Book (USD)"
@@ -50,7 +49,7 @@ def seed_demo_portfolio() -> SeedResult:
         session.query(Position).filter(Position.portfolio_id == portfolio.id).delete()
         session.flush()
 
-        positions: List[Position] = [
+        positions: list[Position] = [
             Position(
                 portfolio_id=portfolio.id,
                 currency_code=entry["currency"],
