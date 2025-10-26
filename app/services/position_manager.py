@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, cast
 
 from sqlalchemy import asc, desc
 from sqlalchemy.exc import IntegrityError
@@ -88,7 +89,7 @@ def list_positions(params: PositionListParams) -> PositionListResult:
     total = query.count()
     sort_column = _resolve_sort_column(params.sort)
     order_direction = params.direction.lower()
-    order_clause = asc(sort_column) if order_direction == "asc" else desc(sort_column)
+    order_clause: Any = asc(sort_column) if order_direction == "asc" else desc(sort_column)
 
     offset = (params.page - 1) * params.page_size
     records = (
@@ -153,7 +154,8 @@ def update_position(portfolio_id: int, position_id: int, data: PositionUpdateDat
         position.amount = _validate_amount(data.amount)
 
     if data.side is not None:
-        position.side = _normalize_side(data.side, field="side")
+        new_side = _normalize_side(data.side, field="side")
+        position.side = cast(PositionType, new_side)
 
     try:
         session.commit()

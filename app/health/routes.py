@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from flask import current_app
 from flask.views import MethodView
 
@@ -25,7 +27,8 @@ class HealthStatus(MethodView):
 class HealthRates(MethodView):
     @blp.response(200, HealthRatesSchema())
     def get(self):
-        orchestrator: Orchestrator | None = current_app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+        extensions = current_app.extensions
+        orchestrator = cast(Orchestrator | None, extensions.get("fx_orchestrator"))
         record: SnapshotRecord | None = orchestrator.get_snapshot_info() if orchestrator else None
 
         if record is None:

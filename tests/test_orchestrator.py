@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
+from decimal import Decimal
 from unittest.mock import patch
 
 from app.providers.base import BaseRateProvider, ProviderError
@@ -10,8 +12,8 @@ from app.services.orchestrator import Orchestrator
 
 
 class FakeProvider(BaseRateProvider):
-    def __init__(self, responses, name: str = "fake"):
-        self.responses = responses
+    def __init__(self, responses: Iterable[RateSnapshot | Exception], name: str = "fake"):
+        self.responses: list[RateSnapshot | Exception] = list(responses)
         self.name = name
 
     def get_latest(self, base: str) -> RateSnapshot:
@@ -31,7 +33,7 @@ def make_snapshot(source: str, base: str) -> RateSnapshot:
         base_currency=base,
         source=source,
         timestamp=datetime(2025, 10, 16, 12, 0, tzinfo=UTC),
-        rates={"EUR": 0.9, "GBP": 0.8},
+        rates={"EUR": Decimal("0.9"), "GBP": Decimal("0.8")},
     )
 
 

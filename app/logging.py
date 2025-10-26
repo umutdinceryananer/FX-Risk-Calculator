@@ -158,9 +158,9 @@ def init_request_logging(app) -> None:
 
 def _request_duration_ms() -> float | None:
     start = getattr(g, "request_start", None)
-    if start is None:
+    if not isinstance(start, int | float):
         return None
-    return (time.perf_counter() - start) * 1000
+    return float((time.perf_counter() - start) * 1000)
 
 
 def _build_request_log_extra(

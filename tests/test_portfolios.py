@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -25,13 +26,15 @@ def _cleanup_portfolios(app):
         session.commit()
 
 
-def _create_portfolio(client, name: str, base_currency: str = "USD") -> dict:
+def _create_portfolio(client, name: str, base_currency: str = "USD") -> dict[str, Any]:
     response = client.post(
         "/api/v1/portfolios",
         json={"name": name, "base_currency": base_currency},
     )
     assert response.status_code == 201
-    return response.get_json()
+    payload = response.get_json()
+    assert isinstance(payload, dict)
+    return payload
 
 
 def test_create_portfolio_success(client):

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -28,18 +30,18 @@ def snapshot():
         base_currency="USD",
         source="mock",
         timestamp=datetime(2025, 10, 16, 12, 0, tzinfo=UTC),
-        rates={"EUR": 0.9, "GBP": 0.8},
+        rates={"EUR": Decimal("0.9"), "GBP": Decimal("0.8")},
     )
 
 
-def _increment_persist_counter(counter):
-    def _increment(_snapshot):
+def _increment_persist_counter(counter: dict[str, int]) -> Callable[[RateSnapshot], None]:
+    def _increment(_snapshot: RateSnapshot) -> None:
         counter["persist"] += 1
 
     return _increment
 
 
-def _raise_should_not_persist(_snapshot):
+def _raise_should_not_persist(_snapshot: RateSnapshot) -> None:
     raise RuntimeError("should not persist")
 
 

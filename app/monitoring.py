@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
-from flask import current_app, g
+from flask import Flask, current_app, g
 
 LOG_EVENT_NAME = "performance.timing"
 CONFIG_ENABLED_KEY = "TIMING_LOGS_ENABLED"
@@ -76,10 +76,10 @@ def timed_operation(
     *,
     metadata: Mapping[str, Any] | None = None,
     logger: logging.Logger | None = None,
-) -> None:
+) -> Iterator[None]:
     """Measure the elapsed wall time for a block and log if enabled."""
 
-    app = current_app._get_current_object()
+    app = cast(Flask, current_app)
     enabled = _is_enabled(app)
     threshold_ms = _threshold_ms(app)
 
@@ -109,11 +109,15 @@ def timed_operation(
                 logger.info("Timing captured", extra=payload)
 
 
-def timed(event: str, *, metadata_factory=None):
+def timed(
+    event: str,
+    *,
+    metadata_factory: Callable[..., Mapping[str, Any] | None] | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator variant of ``timed_operation`` for function instrumentation."""
 
-    def _decorator(func):
-        def _wrapper(*args, **kwargs):
+    def _decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def _wrapper(*args: Any, **kwargs: Any) -> Any:
             metadata = metadata_factory(*args, **kwargs) if callable(metadata_factory) else None
             with timed_operation(event, metadata=metadata):
                 return func(*args, **kwargs)

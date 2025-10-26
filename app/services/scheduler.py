@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from flask import Flask
 
-from app.providers import ProviderError
+from app.providers import ProviderError, RateSnapshot
 from app.services.rate_store import persist_snapshot
 
 logger = logging.getLogger(__name__)
@@ -17,25 +19,33 @@ SCHEDULER_EXT_KEY = "apscheduler"
 REFRESH_STATE_KEY = "fx_refresh_state"
 
 
-def ensure_refresh_state(app) -> dict:
+def ensure_refresh_state(app: Flask) -> dict[str, Any]:
     """Ensure refresh state dict exists on app extensions."""
-
-    return app.extensions.setdefault(REFRESH_STATE_KEY, {})
+    state = app.extensions.setdefault(REFRESH_STATE_KEY, {})
+    if not isinstance(state, dict):
+        new_state: dict[str, Any] = {}
+        app.extensions[REFRESH_STATE_KEY] = new_state
+        return new_state
+    return state
 
 
 def _run_refresh(app) -> None:
     from app.services.orchestrator import Orchestrator  # Local import to avoid circular
 
     with app.app_context():
-        orchestrator: Orchestrator | None = app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+        orchestrator = cast(
+            Orchestrator | None,
+            app.extensions.get("fx_orchestrator"),
+        )
         if orchestrator is None:
             logger.warning("No orchestrator configured; skipping scheduled refresh.")
             return
 
         base = app.config.get("FX_CANONICAL_BASE", "USD")
+        state = ensure_refresh_state(app)
+        snapshot: RateSnapshot | None = None
         try:
             snapshot = orchestrator.refresh_latest(base)
-            state = ensure_refresh_state(app)
             persist_snapshot(snapshot)
             state["last_success"] = datetime.now(UTC)
             state["last_failure"] = None
@@ -46,8 +56,6 @@ def _run_refresh(app) -> None:
             }
             logger.info("Scheduled refresh completed using %s", snapshot.source)
         except ProviderError as exc:
-            state = ensure_refresh_state(app)
-            persist_snapshot(snapshot)
             state["last_failure"] = datetime.now(UTC)
             logger.error("Scheduled refresh failed: %s", exc)
 

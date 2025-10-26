@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from flask import Response, current_app, jsonify
 
@@ -42,7 +43,9 @@ def refresh_rates() -> Response:
             "message": "Refresh throttled. Try again later.",
             "retry_after": retry_after,
         }
-        return jsonify(payload), 429
+        response = jsonify(payload)
+        response.status_code = 429
+        return response
 
     last_success = state.get("last_success")
     if throttle_seconds > 0 and window_matches and isinstance(last_success, datetime):
@@ -54,20 +57,29 @@ def refresh_rates() -> Response:
                 "message": "Refresh throttled. Try again later.",
                 "retry_after": retry_after,
             }
-            return jsonify(payload), 429
+            response = jsonify(payload)
+            response.status_code = 429
+            return response
     else:
         state.pop("throttle_until", None)
 
-    orchestrator: Orchestrator | None = app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+    orchestrator = cast(
+        Orchestrator | None,
+        app.extensions.get("fx_orchestrator"),
+    )
     if orchestrator is None:
-        return jsonify({"message": "Orchestrator unavailable."}), 503
+        response = jsonify({"message": "Orchestrator unavailable."})
+        response.status_code = 503
+        return response
 
     base = app.config.get("FX_CANONICAL_BASE", "USD")
     try:
         snapshot = orchestrator.refresh_latest(base)
     except ProviderError as exc:
         state["last_failure"] = now
-        return jsonify({"message": str(exc)}), 503
+        response = jsonify({"message": str(exc)})
+        response.status_code = 503
+        return response
 
     state["last_success"] = now
     state["last_failure"] = None
@@ -89,4 +101,6 @@ def refresh_rates() -> Response:
         "base_currency": snapshot.base_currency,
         "as_of": snapshot.timestamp.isoformat(),
     }
-    return jsonify(payload), 202
+    response = jsonify(payload)
+    response.status_code = 202
+    return response

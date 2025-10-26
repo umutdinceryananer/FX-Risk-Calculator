@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.providers.schemas import RateSnapshot
-from app.services.orchestrator import SnapshotRecord
+from app.services.orchestrator import Orchestrator, SnapshotRecord
 
 
 def test_health_endpoint_returns_ok(client):
@@ -18,8 +18,8 @@ def test_health_endpoint_returns_ok(client):
 def test_health_rates_endpoint_returns_uninitialized_when_no_snapshot(client):
     app = client.application
     orchestrator = app.extensions.get("fx_orchestrator")
-    assert orchestrator is not None
-    orchestrator._last_snapshot = None  # type: ignore[attr-defined]
+    assert isinstance(orchestrator, Orchestrator)
+    orchestrator._last_snapshot = None
 
     response = client.get("/health/rates")
     assert response.status_code == 200
@@ -33,14 +33,14 @@ def test_health_rates_endpoint_returns_uninitialized_when_no_snapshot(client):
 def test_health_rates_endpoint_returns_snapshot_metadata(client):
     app = client.application
     orchestrator = app.extensions.get("fx_orchestrator")
-    assert orchestrator is not None
+    assert isinstance(orchestrator, Orchestrator)
     snapshot = RateSnapshot(
         base_currency="USD",
         source="mock",
         timestamp=datetime(2025, 10, 16, 12, 0, tzinfo=UTC),
         rates={"EUR": 0.9},
     )
-    orchestrator._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=False)  # type: ignore[attr-defined]
+    orchestrator._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=False)
 
     response = client.get("/health/rates")
     assert response.status_code == 200
@@ -57,14 +57,14 @@ def test_health_rates_endpoint_returns_snapshot_metadata(client):
 def test_health_rates_marks_stale_when_cached_snapshot_used(client):
     app = client.application
     orchestrator = app.extensions.get("fx_orchestrator")
-    assert orchestrator is not None
+    assert isinstance(orchestrator, Orchestrator)
     snapshot = RateSnapshot(
         base_currency="USD",
         source="fallback",
         timestamp=datetime(2025, 10, 16, 13, 0, tzinfo=UTC),
         rates={"EUR": 0.9},
     )
-    orchestrator._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=True)  # type: ignore[attr-defined]
+    orchestrator._last_snapshot = SnapshotRecord(snapshot=snapshot, stale=True)
 
     response = client.get("/health/rates")
     payload = response.get_json()

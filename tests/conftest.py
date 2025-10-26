@@ -7,6 +7,7 @@ import os
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from alembic import command
@@ -82,12 +83,15 @@ def fixtures_dir() -> Path:
 
 
 @pytest.fixture()
-def load_json_fixture(fixtures_dir: Path) -> Callable[[str], dict]:
+def load_json_fixture(fixtures_dir: Path) -> Callable[[str], dict[str, Any]]:
     """Load a JSON fixture by filename."""
 
-    def _loader(filename: str) -> dict:
+    def _loader(filename: str) -> dict[str, Any]:
         path = fixtures_dir / filename
         with path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            raise ValueError(f"Fixture '{filename}' is not a JSON object.")
+        return cast(dict[str, Any], data)
 
     return _loader

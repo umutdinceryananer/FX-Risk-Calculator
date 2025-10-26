@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import cast
 
 from app.providers import BaseRateProvider, ProviderError
 from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
@@ -21,7 +22,7 @@ def run_backfill(days: int, base_currency: str) -> None:
     from flask import current_app
 
     app = current_app
-    orchestrator: Orchestrator | None = app.extensions.get("fx_orchestrator")  # type: ignore[assignment]
+    orchestrator = cast(Orchestrator | None, app.extensions.get("fx_orchestrator"))
     if orchestrator is None:
         raise RuntimeError("Orchestrator is not initialised")
 

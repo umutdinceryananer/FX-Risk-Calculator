@@ -46,7 +46,7 @@ def register_error_handlers(app: Flask) -> None:
         message = error.message or DEFAULT_STATUS_MESSAGES.get(error.status_code, "Request failed.")
         payload = error.payload or {}
 
-        response = {"message": message}
+        response: dict[str, Any] = {"message": message}
         if payload:
             response.update(payload)
 

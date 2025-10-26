@@ -61,7 +61,7 @@ def init_cors(app) -> None:
     @app.after_request
     def apply_cors(response: Response):
         origin = request.headers.get("Origin")
-        if origin_allowed(origin):
+        if origin and origin_allowed(origin):
             _apply_origin_headers(response, origin, allowed_origins)
         return response
 

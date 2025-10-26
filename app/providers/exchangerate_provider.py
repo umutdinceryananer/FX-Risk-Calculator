@@ -121,7 +121,11 @@ class ExchangeRateHostProvider(BaseRateProvider):
 
     @classmethod
     def _build_client_config(cls, config: Mapping[str, Any]) -> ExchangeRateHostClientConfig:
-        base_url = config.get("RATES_API_BASE_URL")
+        base_url_value = config.get("RATES_API_BASE_URL")
+        if not isinstance(base_url_value, str) or not base_url_value.strip():
+            base_url = "https://api.exchangerate.host"
+        else:
+            base_url = base_url_value
         timeout = float(config.get("REQUEST_TIMEOUT_SECONDS", 5))
         max_retries = int(config.get("RATES_API_MAX_RETRIES", 3))
         backoff = float(config.get("RATES_API_BACKOFF_SECONDS", 0.5))

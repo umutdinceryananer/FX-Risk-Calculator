@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, localcontext
+from typing import cast
 
 from flask import current_app
 from sqlalchemy import desc
@@ -63,12 +64,13 @@ class PortfolioValueSeriesResult:
 def _fetch_positions(session, portfolio_id: int) -> list[Position]:
     """Return portfolio positions with only the required columns loaded."""
 
-    return (
+    rows = (
         session.query(Position)
         .options(load_only(Position.currency_code, Position.amount, Position.side))
         .filter(Position.portfolio_id == portfolio_id)
         .all()
     )
+    return [cast(Position, row) for row in rows]
 
 
 def calculate_portfolio_value(
