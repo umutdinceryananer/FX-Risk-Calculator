@@ -1,5 +1,15 @@
 const TOAST_CONTAINER_SELECTOR = "[data-toast-container]";
 
+function logWarning(message, ...args) {
+  // eslint-disable-next-line no-console
+  console.warn(message, ...args);
+}
+
+function logError(message, ...args) {
+  // eslint-disable-next-line no-console
+  console.error(message, ...args);
+}
+
 export function showToast({
   title = "Notification",
   message = "",
@@ -10,7 +20,7 @@ export function showToast({
 } = {}) {
   const container = document.querySelector(TOAST_CONTAINER_SELECTOR);
   if (!container) {
-    console.warn("Toast container not found in DOM.");
+    logWarning("Toast container not found in DOM.");
     return;
   }
 
@@ -47,7 +57,7 @@ export function showToast({
     toastInstance = new bootstrapLib.Toast(toastElement, { autohide: shouldAutoHide, delay });
     toastInstance.show();
   } else {
-    console.warn("Bootstrap JS not available; showing static toast");
+    logWarning("Bootstrap JS not available; showing static toast");
     if (shouldAutoHide) {
       setTimeout(() => {
         toastElement.remove();
@@ -69,7 +79,7 @@ export function showToast({
             action.onClick();
           }
         } catch (err) {
-          console.error("Toast action handler failed", err);
+          logError("Toast action handler failed", err);
         }
         if (action.dismiss !== false) {
           if (toastInstance) {

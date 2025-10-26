@@ -11,11 +11,7 @@ from app.providers.schemas import RateHistorySeries, RatePoint, RateSnapshot
 from app.services.fx_conversion import RebaseError, rebase_rates
 
 from ..services.currency_registry import registry
-from .frankfurter_client import (
-    FrankfurterAPIError,
-    FrankfurterClient,
-    FrankfurterClientConfig,
-)
+from .frankfurter_client import FrankfurterAPIError, FrankfurterClient, FrankfurterClientConfig
 
 
 class FrankfurterProvider(BaseRateProvider):

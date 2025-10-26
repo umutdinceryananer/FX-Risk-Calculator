@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from config import get_config
 from flask import Flask, redirect, url_for
 from flask_smorest import Api
+
+from config import get_config
 
 from .cli import register_cli
 from .cors import init_cors

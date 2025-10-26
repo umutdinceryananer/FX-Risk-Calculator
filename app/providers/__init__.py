@@ -7,11 +7,7 @@ from .exchangerate_client import (
     ExchangeRateHostError,
 )
 from .exchangerate_provider import ExchangeRateHostProvider
-from .frankfurter_client import (
-    FrankfurterAPIError,
-    FrankfurterClient,
-    FrankfurterClientConfig,
-)
+from .frankfurter_client import FrankfurterAPIError, FrankfurterClient, FrankfurterClientConfig
 from .schemas import RateHistorySeries, RatePoint, RateSnapshot
 
 __all__ = [

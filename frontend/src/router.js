@@ -1,6 +1,6 @@
 import { renderDashboardView } from "./views/dashboard.js";
-import { renderPortfolioView } from "./views/portfolio.js";
 import { renderNotFoundView } from "./views/not-found.js";
+import { renderPortfolioView } from "./views/portfolio.js";
 
 const DEFAULT_ROUTE = "/dashboard";
 

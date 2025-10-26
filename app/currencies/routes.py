@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from flask.views import MethodView
 
-from app.schemas import (
-    CurrencyValidationRequestSchema,
-    CurrencyValidationResponseSchema,
-)
+from app.schemas import CurrencyValidationRequestSchema, CurrencyValidationResponseSchema
 from app.validation import validate_currency_code
 
 from . import blp
