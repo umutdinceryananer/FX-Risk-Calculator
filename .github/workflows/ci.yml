@@ -52,11 +52,9 @@ jobs:
         run: make typecheck
 
       - name: Run tests with coverage
-        env:
-          COVERAGE_FILE: coverage.xml
         run: |
           coverage run -m pytest
-          coverage xml
+          coverage xml -o coverage.xml
           coverage-badge -o coverage.svg
 
       - name: Upload coverage artifacts
