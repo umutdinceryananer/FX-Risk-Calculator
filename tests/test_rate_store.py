@@ -28,10 +28,14 @@ def test_persist_snapshot_normalizes_timestamp_to_utc(app):
 
         persist_snapshot(snapshot)
 
+        query = text(
+            "SELECT timestamp FROM fx_rates "
+            "WHERE base_currency_code = :base "
+            "AND target_currency_code = :target "
+            "AND source = :source"
+        )
         raw_value = session.execute(
-            text(
-                "SELECT timestamp FROM fx_rates WHERE base_currency_code=:base AND target_currency_code=:target AND source=:source"
-            ),
+            query,
             {"base": "USD", "target": "EUR", "source": "mock"},
         ).scalar_one()
 

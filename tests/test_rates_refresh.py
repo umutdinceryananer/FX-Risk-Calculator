@@ -32,11 +32,22 @@ def snapshot():
     )
 
 
+def _increment_persist_counter(counter):
+    def _increment(_snapshot):
+        counter["persist"] += 1
+
+    return _increment
+
+
+def _raise_should_not_persist(_snapshot):
+    raise RuntimeError("should not persist")
+
+
 def test_manual_refresh_returns_accepted(client, snapshot, monkeypatch):
     calls = {"persist": 0}
     monkeypatch.setattr(
         "app.rates.routes.persist_snapshot",
-        lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1),
+        _increment_persist_counter(calls),
     )
 
     app = client.application
@@ -61,7 +72,7 @@ def test_manual_refresh_returns_accepted(client, snapshot, monkeypatch):
 def test_manual_refresh_throttles_requests(client, snapshot, monkeypatch):
     monkeypatch.setattr(
         "app.rates.routes.persist_snapshot",
-        lambda snapshot: (_ for _ in ()).throw(RuntimeError("should not persist")),
+        _raise_should_not_persist,
     )
 
     app = client.application
@@ -77,7 +88,7 @@ def test_manual_refresh_throttles_requests(client, snapshot, monkeypatch):
 
 
 def test_manual_refresh_reports_provider_error(client, monkeypatch):
-    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda snapshot: None)
+    monkeypatch.setattr("app.rates.routes.persist_snapshot", lambda _snapshot: None)
 
     app = client.application
     app.extensions["fx_orchestrator"] = DummyOrchestrator(error=ProviderError("primary down"))
@@ -94,7 +105,7 @@ def test_manual_refresh_respects_zero_throttle(client, snapshot, monkeypatch):
     calls = {"persist": 0}
     monkeypatch.setattr(
         "app.rates.routes.persist_snapshot",
-        lambda snapshot: calls.__setitem__("persist", calls["persist"] + 1),
+        _increment_persist_counter(calls),
     )
 
     app = client.application

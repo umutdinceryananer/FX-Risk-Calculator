@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+
 from app.providers import (
     BaseRateProvider,
     ProviderError,

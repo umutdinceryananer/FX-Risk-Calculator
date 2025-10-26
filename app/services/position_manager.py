@@ -239,7 +239,6 @@ def _normalize_side(
 
 
 def _raise_integrity_error(exc: IntegrityError) -> None:
-    message = str(getattr(exc, "orig", exc))
     raise APIError("Unable to process position request.", status_code=400) from exc
 
 

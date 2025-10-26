@@ -51,8 +51,12 @@ def test_run_backfill_persists_history(client, monkeypatch, history_series):
     original_codes = registry.codes
     registry.codes = {"USD", "EUR"}
 
-    persisted = []
-    monkeypatch.setattr("app.services.backfill.persist_snapshot", lambda snapshot: persisted.append(snapshot))
+    persisted: list = []
+
+    def _capture_snapshot(snapshot):
+        persisted.append(snapshot)
+
+    monkeypatch.setattr("app.services.backfill.persist_snapshot", _capture_snapshot)
 
     try:
         with app.app_context():

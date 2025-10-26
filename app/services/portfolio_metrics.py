@@ -170,7 +170,7 @@ def _rates_for_timestamps(
         rates = grouped.setdefault(normalized_ts, {})
         rates[normalize_currency(target_code)] = rate
 
-    for normalized_ts, rates in grouped.items():
+    for _timestamp, rates in grouped.items():
         if rates:
             rates[base_code] = Decimal("1")
 
