@@ -2,6 +2,7 @@ alembic==1.14.0
 APScheduler==3.11.0
 black==24.10.0
 coverage==7.11.0
+coverage-badge==1.1.2
 freezegun==1.5.1
 Flask==3.1.2
 Flask-Smorest==0.46.2
