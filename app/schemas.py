@@ -41,5 +41,3 @@ class RefreshThrottleSchema(Schema):
 
 class ErrorMessageSchema(Schema):
     message = fields.String(required=True)
-
-

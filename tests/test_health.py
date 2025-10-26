@@ -53,6 +53,7 @@ def test_health_rates_endpoint_returns_snapshot_metadata(client):
         "stale": False,
     }
 
+
 def test_health_rates_marks_stale_when_cached_snapshot_used(client):
     app = client.application
     orchestrator = app.extensions.get("fx_orchestrator")
