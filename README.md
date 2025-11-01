@@ -1,6 +1,6 @@
-# FX Risk Calculator
+# FX Risk Engine
 
-![CI](https://img.shields.io/github/actions/workflow/status/umutdinceryananer/FX-Risk-Calculator/ci.yml?label=CI&branch=main)
+![CI](https://img.shields.io/github/actions/workflow/status/umutdinceryananer/FX-Risk-Engine/ci.yml?label=CI&branch=main)
 ![Coverage](coverage.svg)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![Type Checking](https://img.shields.io/badge/mypy-configured-2ea44f.svg)
@@ -150,8 +150,8 @@ Scheduler uses APScheduler; disable it via `SCHEDULER_ENABLED=false` or adjust c
 - OpenAPI spec: http://127.0.0.1:5000/docs/openapi.json
 
 ### Postman Collection
-- Import `postman/fx-risk-calculator.postman_collection.json` for a curated set of health, portfolio, position, rates, and metrics requests.
-- Pair it with the environment file `postman/fx-risk-calculator.postman_environment.json` to populate `{{baseUrl}}`, `{{portfolioId}}`, and other reusable variables.
+- Import `postman/fx-risk-engine.postman_collection.json` for a curated set of health, portfolio, position, rates, and metrics requests.
+- Pair it with the environment file `postman/fx-risk-engine.postman_environment.json` to populate `{{baseUrl}}`, `{{portfolioId}}`, and other reusable variables.
 - Run "Create Portfolio" first to set `portfolioId`, then create positions before issuing metrics calls. Use the manual refresh request to pull fresh rates when needed.
 
 ## Portfolio API
